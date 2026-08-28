@@ -10,7 +10,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!
 const PRODUCT = 'appointment-capacity-map'
 const colours = ['#176b8a', '#b94e45', '#377353', '#a75a18', '#73518a']
 let data: Data = emptyData(); let page: Page = 'board'; let day = today(); let time = '09:00'; let draft: Draft | null = null
-let message = ''; let licensed = false; let importError = ''
+let message = ''; let licensed = false; let importError = ''; let updateWaiting: ServiceWorker | null = null
 
 const esc = (value: string | number) => String(value).replace(/[&<>'"]/g, (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[s]!))
 const csv = (v: string | number | undefined) => `"${String(v ?? '').replaceAll('"', '""')}"`
@@ -63,7 +63,7 @@ function legal(kind: 'privacy' | 'terms') { return kind === 'privacy' ? `<articl
 
 function render() {
   const content = page === 'board' ? renderBoard() : page === 'setup' ? setupView() : page === 'review' ? reviewView() : legal(page)
-  app.innerHTML = `<header><a class="brand" href="#" data-page="board" aria-label="Capacity Map home"><span class="brand-mark">⌘</span><span>Capacity <i>Map</i></span></a><span class="local-status" aria-live="polite">${navigator.onLine ? 'Saved on this device' : 'Offline — saved on this device'}</span></header>${nav()}<main id="main" tabindex="-1">${content}</main><footer><span>Made as a local-first planning notebook. Original generated illustration.</span><span><button class="text-button" data-page="privacy">Privacy</button> · <button class="text-button" data-page="terms">Terms</button></span></footer>${message ? `<div class="toast" role="status">${esc(message)}</div>` : ''}`
+  app.innerHTML = `<header><a class="brand" href="#" data-page="board" aria-label="Capacity Map home"><span class="brand-mark">⌘</span><span>Capacity <i>Map</i></span></a><span class="local-status" aria-live="polite">${navigator.onLine ? 'Saved on this device' : 'Offline — saved on this device'}</span></header>${nav()}<main id="main" tabindex="-1"><h1 class="sr-only">Capacity Map service capacity planner</h1>${content}</main><footer><span>Made as a local-first planning notebook. Original generated illustration.</span><span><button class="text-button" data-page="privacy">Privacy</button> · <button class="text-button" data-page="terms">Terms</button></span></footer>${message ? `<div class="toast" role="status">${esc(message)}</div>` : ''}${updateWaiting ? '<div class="update-toast" role="status">A new version is ready. <button data-update>Refresh now</button></div>' : ''}`
   wire()
 }
 
@@ -87,6 +87,7 @@ function wire() {
   app.querySelector<HTMLInputElement>('#import-file')?.addEventListener('change', importCsv)
   app.querySelector<HTMLButtonElement>('[data-clear]')?.addEventListener('click', async () => { if (confirm('Start a blank notebook? Export first if you may need this plan.')) { data = emptyData(); await persist('Blank notebook ready') } })
   app.querySelector<HTMLButtonElement>('[data-restore]')?.addEventListener('click', () => { const token = prompt('Paste your Capacity Map license token'); if (token?.trim()) activateLicense(token.trim()) })
+  app.querySelector<HTMLButtonElement>('[data-update]')?.addEventListener('click', () => updateWaiting?.postMessage({ type: 'SKIP_WAITING' }))
 }
 
 function exportCsv() {
@@ -108,5 +109,10 @@ async function activateLicense(token: string) { localStorage.setItem(`sb_license
 function setupLicense() { const params = new URLSearchParams(location.search); const fromUrl = params.get('license'); const token = fromUrl || localStorage.getItem(`sb_license:${PRODUCT}`); if (fromUrl) { localStorage.setItem(`sb_license:${PRODUCT}`, fromUrl); params.delete('license'); history.replaceState({}, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`) } if (token) activateLicense(token) }
 
 window.addEventListener('online', render); window.addEventListener('offline', render)
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => undefined))
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((registration) => {
+  const showUpdate = (worker: ServiceWorker | null) => { if (worker && navigator.serviceWorker.controller) { updateWaiting = worker; render() } }
+  showUpdate(registration.waiting)
+  registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', () => { if (registration.installing?.state === 'installed') showUpdate(registration.waiting) }))
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload())
+}).catch(() => undefined))
 load().then((loaded) => { data = loaded; setupLicense(); render() }).catch(() => { message = 'Local storage is unavailable. Check your browser privacy settings.'; render() })
