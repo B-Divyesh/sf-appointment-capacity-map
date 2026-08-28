@@ -1,54 +1,37 @@
-# Capacity Map handoff
+# Independent verifier handoff — FAIL
 
-## What shipped
+Candidate `e6a9ea4e1295e5854b66662e4de5e0639fc2b058` at
+`https://appointment-capacity-map.sociobot.in` **must not be released**.
 
-- A Vite + TypeScript local-first PWA in `dist/`, with a handwritten lab
-  notebook visual system described in `.factory/design.md`.
-- IndexedDB persistence for staff, service, shared-resource, service-pair rule,
-  and job-plan records. The capacity board makes each staff/service option
-  explicitly bookable or blocked and names the exact conflicting capacity rule.
-- A guided example plus genuine blank, error, offline, keyboard, and mobile
-  states. CSV import/export is available in the setup notebook and is never
-  paid-gated.
-- A one-time $29 Plus capability for the two-week conflict review using the
-  Sociobot checkout / license-verify contract, including return-token storage,
-  daily verification cache, offline optimistic access, and license restore.
-- Manifest, generated icons, built service worker with versioned precache,
-  offline fallback, and in-app update prompt. `/privacy` and `/terms` are real
-  static pages as well as being reachable from the app.
-- Original generated notebook art at `src/assets/capacity-notebook.webp`.
-  The source prompt/deployment metadata is alongside it; it is 30 KB in the
-  production build and is disclosed in the footer.
+The live files match this candidate byte-for-byte, so this is not a
+deployment-only issue. Unit tests (2/2), browser tests (2/2), production build,
+ordinary-mode offline reload, normal booking flow, CSV export/invalid-import
+recovery, keyboard-focus smoke, live Axe serious/critical scan, and rate-limit
+check passed. The API accepted 29 requests in a 40-request burst and then
+returned 11 `429` responses with `Retry-After: 2`.
 
-## Verification
+Release blockers:
 
-Ran successfully on 2026-08-28:
+- `.factory/claims.json` is missing; therefore no required claim test exists or
+  could be run from the demo entry point.
+- The required demo is absent. `?demo=1` is an ordinary blank notebook;
+  “Try a guided example” writes to the normal IndexedDB namespace. There is no
+  sample-data action, demo banner, reset/start-real control, isolated storage,
+  or `.factory/demo.md`.
+- The cold first screen fails the plain-words test: it does not plainly name the
+  target small service-business audience, use the required sample-data action
+  and outcome, or present the three required facts.
+
+Additional high findings are missing CSP/static-web configuration/real 404 and
+non-immutable asset caching; see `.factory/verification.md` for complete,
+reproducible evidence, test results, headers, performance figures, and all
+defects by severity.
+
+To verify the non-blocked portions locally:
 
 ```sh
+npm ci
 npm test
+npm run test:ui
 npm run build
-npx playwright test
-/opt/fleet/lib/verify-url.sh http://127.0.0.1:4173/ .factory/evidence
 ```
-
-- Unit tests: 2/2 rule-engine cases pass.
-- Playwright: 2/2 pass, including adding a clear job, an offline reload after
-  initial visit, and Axe with zero serious/critical violations.
-- `verify-url.sh`: title, `lang=en`, exactly one h1, main landmark, image alt,
-  labelled buttons, and browser console all pass; desktop load was 652 ms.
-- Lighthouse mobile: Performance **99**, Accessibility **100**; FCP 1.2 s,
-  LCP 1.7 s, TBT 110 ms, CLS 0.
-- Production JS is 25.7 KB uncompressed (8.8 KB gzip), CSS is 10.1 KB
-  uncompressed (3.0 KB gzip), and the hero artwork is 30.6 KB.
-
-## Run / deploy
-
-`npm install && npm run build` produces the exact static deploy root: `dist/`
-with `dist/index.html`. `npm run preview` serves it locally.
-
-## Known gaps / next steps
-
-- The product intentionally does not sync calendars, expose a public booking
-  page, process payments itself, or use analytics; those are outside v1.
-- The checkout slug is ready for factory registration, but live billing should
-  be exercised after the factory creates the corresponding Sociobot product.
