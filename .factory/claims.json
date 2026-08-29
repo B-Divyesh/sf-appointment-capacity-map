@@ -1,10 +1,17 @@
 [
   {
     "id": "demo-isolation",
-    "claim": "Try realistic sample data in one click without reading or saving to the real notebook.",
+    "claim": "Try two people, three services, two shared resources, and three jobs in one click without reading or saving to the real notebook.",
     "where": "home primary action, demo banner, README",
     "test": "npm run test:claims -- --grep @claim:demo-isolation",
     "sandbox": "fresh browser context; enter from the home action; inspect IndexedDB keys; leave with Start for real"
+  },
+  {
+    "id": "capacity-setup",
+    "claim": "Record people, services, shared resources, and service-pair rules and use them for capacity checks.",
+    "where": "home how-it-works, setup, README",
+    "test": "npm run test:claims -- --grep @claim:capacity-setup",
+    "sandbox": "fresh /demo/setup; create a person, resource, service, and service-pair rule; reload; assert all persist and the rule blocks an overlap on the board"
   },
   {
     "id": "offline-reload",

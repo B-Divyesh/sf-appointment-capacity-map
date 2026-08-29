@@ -43,6 +43,13 @@ describe('release contracts', () => {
     for (const required of ['<header>', '<main', '<footer>', 'name="description"', 'property="og:description"', 'name="twitter:description"', 'href="/privacy"', 'href="/terms"', 'rel="icon"']) expect(notFound).toContain(required)
   })
 
+  it('lists every public application route in the sitemap', () => {
+    const sitemap = readFileSync('public/sitemap.xml', 'utf8')
+    for (const route of ['/', '/demo', '/demo/setup', '/demo/review', '/setup', '/review', '/privacy', '/terms']) {
+      expect(sitemap).toContain(`<loc>https://appointment-capacity-map.sociobot.in${route}</loc>`)
+    }
+  })
+
   it('derives the PWA cache and installed URL from the same build version', () => {
     const config = readFileSync('vite.config.ts', 'utf8')
     expect(config).not.toContain("capacity-map-v1")

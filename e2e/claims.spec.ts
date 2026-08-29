@@ -6,11 +6,21 @@ test('@claim:demo-isolation sample mode is one click and isolated from the real 
   await expect(page).toHaveURL(/\/demo$/)
   await expect(page.getByText('Demo — sample data, nothing is saved to your notebook')).toBeVisible()
   await expect(page.getByText('New client call')).toBeVisible()
+  await page.getByRole('link', { name: 'Notebook setup' }).click()
+  await expect(page.locator('#staff-form + .plain-list > li')).toHaveCount(2)
+  await expect(page.locator('#resource-form + .plain-list > li')).toHaveCount(2)
+  await expect(page.locator('#service-form + .plain-list > li')).toHaveCount(3)
+  await page.getByRole('link', { name: 'Today board' }).click()
+  await expect(page.locator('.booking')).toHaveCount(3)
   await page.getByRole('button', { name: /Consultation with Leo: bookable/ }).click()
   await page.getByRole('button', { name: 'Add clear job' }).click()
   await expect(page.locator('.booking')).toHaveCount(4)
   await page.getByRole('button', { name: 'Reset demo' }).click()
   await expect(page.locator('.booking')).toHaveCount(3)
+  await page.getByRole('link', { name: 'Notebook setup' }).click()
+  await expect(page.locator('#staff-form + .plain-list > li')).toHaveCount(2)
+  await expect(page.locator('#resource-form + .plain-list > li')).toHaveCount(2)
+  await expect(page.locator('#service-form + .plain-list > li')).toHaveCount(3)
   expect(await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const opening = indexedDB.open('capacity-map', 1)
@@ -37,6 +47,47 @@ test('@claim:demo-isolation sample mode is one click and isolated from the real 
   await expect(page).toHaveURL(/\/demo$/)
   await expect(page.getByText('Demo — sample data, nothing is saved to your notebook')).toBeVisible()
   await expect(page.getByText('New client call')).toBeVisible()
+})
+
+test('@claim:capacity-setup creates and retains every capacity record for board checks', async ({ page }) => {
+  await page.goto('/demo/setup')
+
+  await page.locator('#staff-form input[name="name"]').fill('Nora')
+  await page.locator('#staff-form input[name="parallelSlots"]').fill('1')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await expect(page.getByText('Nora', { exact: true })).toBeVisible()
+
+  await page.locator('#resource-form input[name="name"]').fill('Quiet room')
+  await page.locator('#resource-form input[name="capacity"]').fill('1')
+  await page.getByRole('button', { name: 'Add resource' }).click()
+  await expect(page.getByText('Quiet room', { exact: true })).toBeVisible()
+
+  await page.locator('#service-form input[name="name"]').fill('Intake check')
+  await page.locator('#service-form input[name="minutes"]').fill('30')
+  await page.locator('#service-form').getByLabel('Nora').check()
+  await page.locator('#service-form').getByLabel('Quiet room').check()
+  await page.getByRole('button', { name: 'Add service' }).click()
+  await expect(page.locator('#service-form + .plain-list b').getByText('Intake check', { exact: true })).toBeVisible()
+
+  await page.locator('#rule-form select[name="serviceA"]').selectOption({ label: 'Consultation' })
+  await page.locator('#rule-form select[name="serviceB"]').selectOption({ label: 'Intake check' })
+  await page.locator('#rule-form input[name="note"]').fill('Nora prepares every consultation')
+  await page.getByRole('button', { name: 'Add rule' }).click()
+  await expect(page.locator('.plain-list li').filter({ hasText: 'Consultation × Intake check' })).toContainText('Nora prepares every consultation')
+
+  await page.reload()
+  await expect(page.getByText('Nora', { exact: true })).toBeVisible()
+  await expect(page.getByText('Quiet room', { exact: true })).toBeVisible()
+  await expect(page.locator('#service-form + .plain-list b').getByText('Intake check', { exact: true })).toBeVisible()
+  await expect(page.locator('.plain-list li').filter({ hasText: 'Consultation × Intake check' })).toContainText('Nora prepares every consultation')
+
+  await page.getByRole('link', { name: 'Today board' }).click()
+  await page.getByRole('button', { name: /Intake check with Nora: bookable/ }).click()
+  await expect(page.getByText('Shared resources: Quiet room')).toBeVisible()
+  await page.getByRole('button', { name: 'Add clear job' }).click()
+  await page.getByRole('button', { name: /Consultation with Leo: blocked, Consultation and Intake check do not overlap/ }).click()
+  await expect(page.getByRole('alert')).toContainText('Nora prepares every consultation')
+  await expect(page.getByRole('button', { name: 'Add clear job' })).toBeDisabled()
 })
 
 test('@claim:offline-reload works offline after the first visit', async ({ page, context }) => {
