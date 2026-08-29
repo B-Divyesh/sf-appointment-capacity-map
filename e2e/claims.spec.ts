@@ -312,19 +312,19 @@ test('@claim:availability-check adds a clear job and prevents a conflicting job 
 })
 
 test('@claim:license-request-data sends only the pasted token in a bodyless Sociobot request', async ({ page }) => {
-  let licenseRequest: import('@playwright/test').Request | undefined
-  await page.route('https://api.sociobot.in/api/v1/products/appointment-capacity-map/verify?license=private-token-42', async (route) => {
-    licenseRequest = route.request()
-    await route.fulfill({ json: { valid: true, reason: 'ok', expires_at: null } })
-  })
+  const requestSeen = page.waitForRequest(
+    (request) => request.url() === 'https://api.sociobot.in/api/v1/products/appointment-capacity-map/verify?license=private-token-42',
+    { timeout: 15_000 }
+  )
   await page.goto('/?license=private-token-42')
-  await expect.poll(() => licenseRequest?.url()).toContain('/verify?license=private-token-42')
-  const url = new URL(licenseRequest!.url())
+  const licenseRequest = await requestSeen
+  expect(licenseRequest.url()).toContain('/verify?license=private-token-42')
+  const url = new URL(licenseRequest.url())
   expect(url.origin).toBe('https://api.sociobot.in')
   expect(url.pathname).toBe('/api/v1/products/appointment-capacity-map/verify')
   expect([...url.searchParams.entries()]).toEqual([['license', 'private-token-42']])
-  expect(licenseRequest!.method()).toBe('GET')
-  expect(licenseRequest!.postData()).toBeNull()
+  expect(licenseRequest.method()).toBe('GET')
+  expect(licenseRequest.postData()).toBeNull()
 })
 
 test('@claim:generated-art-disclosure shows the generated notebook art disclosure', async ({ page }) => {
