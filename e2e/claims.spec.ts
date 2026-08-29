@@ -133,15 +133,22 @@ test('@claim:csv-roundtrip exports every sample row and imports a replacement pl
   await expect(page.getByText('Ava', { exact: true })).toHaveCount(0)
 })
 
-test('@claim:privacy-local-only keeps the demo planning flow on the product origin', async ({ page }) => {
+test('@claim:privacy-local-only keeps planning data and every loaded code or font resource on approved origins', async ({ page }) => {
   const origins = new Set<string>()
-  page.on('request', (request) => origins.add(new URL(request.url()).origin))
+  const protectedResources: { type: string; url: string }[] = []
+  page.on('request', (request) => {
+    origins.add(new URL(request.url()).origin)
+    if (['script', 'stylesheet', 'font'].includes(request.resourceType())) protectedResources.push({ type: request.resourceType(), url: request.url() })
+  })
   await page.goto('/demo')
   await page.getByRole('button', { name: /Consultation with Leo: bookable/ }).click()
   await page.getByRole('button', { name: 'Add clear job' }).click()
   await page.getByRole('link', { name: 'Notebook setup' }).click()
   await expect(page.getByRole('button', { name: 'Export CSV' })).toBeVisible()
-  expect([...origins]).toEqual([new URL(page.url()).origin])
+  const productOrigin = new URL(page.url()).origin
+  expect([...origins]).toEqual([productOrigin])
+  expect(protectedResources.some((resource) => resource.type === 'script')).toBe(true)
+  expect(protectedResources.every((resource) => new URL(resource.url).origin === productOrigin)).toBe(true)
 })
 
 test('@claim:conflict-explanation names person, resource, and service-pair blockers', async ({ page }) => {

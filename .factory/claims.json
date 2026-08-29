@@ -29,10 +29,10 @@
   },
   {
     "id": "privacy-local-only",
-    "claim": "Planning data stays in this browser unless the user exports it; there is no analytics or employee tracking.",
-    "where": "home facts, setup, privacy, README",
+    "claim": "Planning data stays in this browser unless the user exports it; there is no analytics, employee tracking, or third-party fonts or scripts.",
+    "where": "home facts, setup, privacy, README privacy and legal terms",
     "test": "npm run test:claims -- --grep @claim:privacy-local-only",
-    "sandbox": "record every request in a fresh /demo context while adding a job and opening data tools; assert product origin only"
+    "sandbox": "record every request in a fresh /demo context while adding a job and opening data tools; assert product origin only and same-origin script, stylesheet, and font resources"
   },
   {
     "id": "conflict-explanation",

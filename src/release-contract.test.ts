@@ -58,6 +58,25 @@ describe('release contracts', () => {
     expect(notFound).toContain(disclosure)
   })
 
+  it('uses one public term for team members, shared resources, and service-pair rules', () => {
+    const app = readFileSync('src/main.ts', 'utf8')
+    const readme = readFileSync('README.md', 'utf8')
+    const publicCopy = `${app}\n${readme}`.replace(/\s+/g, ' ')
+    for (const copy of [
+      'Record team members, services, shared resources, and service-pair rules.',
+      'Each blocked slot names the team member, shared resource, or service-pair rule.',
+      'The planner records team members, services, shared resources, and service-pair rules.',
+      'Check team-member, shared-resource, and service-pair conflicts with a plain explanation.'
+    ]) expect(publicCopy).toContain(copy)
+  })
+
+  it('declares third-party font and script privacy in the claim contract', () => {
+    const claims = JSON.parse(readFileSync('.factory/claims.json', 'utf8')) as { id: string; claim: string; sandbox: string }[]
+    const privacy = claims.find((claim) => claim.id === 'privacy-local-only')
+    expect(privacy?.claim).toContain('third-party fonts or scripts')
+    expect(privacy?.sandbox).toContain('script, stylesheet, and font')
+  })
+
   it('derives the PWA cache and installed URL from the same build version', () => {
     const config = readFileSync('vite.config.ts', 'utf8')
     expect(config).not.toContain("capacity-map-v1")

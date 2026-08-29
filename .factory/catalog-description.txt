@@ -1,1 +1,1 @@
-Check whether service jobs can overlap before changing your calendar.
+Check service-job overlaps before changing your calendar.

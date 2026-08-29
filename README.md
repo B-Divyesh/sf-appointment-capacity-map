@@ -3,21 +3,21 @@
 Capacity Map checks which service jobs can overlap before a booking is made.
 It is for service businesses with two to ten people that already use a calendar.
 
-The planner records people, services, shared equipment, and no-overlap rules. It
-names the exact constraint behind a blocked time. Planning data stays in the
-current browser unless the user exports it, and the installed app works offline
-after its first visit.
+The planner records team members, services, shared resources, and service-pair
+rules. It names the exact constraint behind a blocked time. Planning data stays
+in the current browser unless the user exports it, and the installed app works
+offline after its first visit.
 
 ## Try the isolated demo
 
 Open `/demo` or choose **Try it with sample data** on the home page. The demo
-loads two people, three services, two shared resources, and three jobs. It uses
-separate browser storage and never reads or writes your real notebook.
+loads two team members, three services, two shared resources, and three jobs.
+It uses separate browser storage and never reads or writes your real notebook.
 Choose **Reset demo** to restore the sample or **Start for real** to discard it.
 
 ## Features
 
-- Check staff, equipment, and service-pair conflicts with a plain explanation.
+- Check team-member, shared-resource, and service-pair conflicts with a plain explanation.
 - Import and export the full plan as CSV.
 - Keep core planning and CSV export free.
 - Preview the fourteen-day conflict review in demo mode.
