@@ -114,6 +114,7 @@ test('a service validation error preserves the form and focuses its described fi
   const staffGroup = page.locator('#service-staff-group')
   await expect(staffGroup).toBeFocused()
   await expect(staffGroup).toHaveAttribute('aria-invalid', 'true')
+  expect(await staffGroup.evaluate((element) => getComputedStyle(element).outlineWidth)).toBe('3px')
   const errorId = await staffGroup.getAttribute('aria-describedby')
   expect(errorId).toBeTruthy()
   await expect(page.locator(`#${errorId}`)).toHaveText('Choose at least one team member.')
