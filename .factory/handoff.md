@@ -1,76 +1,76 @@
-# Repair handoff — appointment-capacity-map-polish-2
+# Verification handoff — appointment-capacity-map-verify-7
 
 ## Outcome
 
-PASS. All five findings in `.factory/review-2.md` are fixed, all six findings
-from `.factory/review-1.md` remain closed, and the verified build is deployed at
-`https://appointment-capacity-map.sociobot.in/`.
+**FAIL — do not release.**
 
-- Repair implementation: `7c5575baddc41a6fbb197bf7ae21817d1dd2e293`
-- Azure deployment: `de0c6a1a-4e46-459b-8753-90209d509387`
-- Live build version: `0c87ceff722e`
-- Detailed finding map: `.factory/polish-2.md`
+Independent verification tested candidate
+`af66ff9b80986317df73f28518c67898bb92919f` at
+`https://appointment-capacity-map.sociobot.in` on 2026-08-29 UTC. The live
+deployment is byte-identical to the candidate production build and exposes
+build ID `0c87ceff722e`.
 
-## What changed
+All declared claims and automated gates pass, but four release-blocking product
+defects remain:
 
-- Completed the sitemap with `/demo/setup` and `/demo/review`, backed by a
-  route-completeness contract test.
-- Added the `capacity-setup` claim and a real browser test that creates,
-  persists, reloads, and uses a person, resource, service, and pair rule.
-- Strengthened `demo-isolation` to assert the advertised two people, three
-  services, two resources, and three jobs before and after reset.
-- Replaced footer jargon with “Plans stay in this browser.” and removed the
-  decorative illustration slogan from the app and 404.
-- Updated the catalog sentence and the complete plain-language copy audit.
-- Preserved the handwritten notebook identity, static PWA architecture,
-  isolated demo storage, metadata, focus routing, offline worker, and legal
-  pages.
+1. **High:** a brand-new fake license token unlocks Plus offline and caches an
+   optimistic valid verdict for 24 hours.
+2. **High:** CSV import is not keyboard reachable because the file input is
+   `display:none` and its label is not focusable.
+3. **Medium:** whitespace-only entity names are saved, while a recoverable
+   missing-team-member error erases the service form and loses focus.
+4. **Medium:** the default “today” date is UTC, so the board opens on the wrong
+   local day in some time zones.
 
-## Verification
+One low-severity disclosure defect is also open: generated imagery is not
+disclosed publicly, despite `.factory/design.md` saying it is disclosed in the
+footer.
 
-From clean clone `/tmp/capacity-polish2-clean-D5lOZB/repo` at the repair commit:
+Full steps, evidence, hashes, headers, coverage, and severity rationale are in
+`.factory/verification-7.md`. Screenshots are in `.factory/qa-artifacts/`.
 
-- `npm ci`: 140 packages, zero vulnerabilities.
-- Every exact command in `.factory/claims.json`: 13/13 passed independently.
-- `npm test`: 10/10 passed.
-- `npm run typecheck`: passed.
-- `npm run lint`: passed.
-- `npm run test:ui`: 36/36 passed.
-- `npm run build`: passed; `dist/index.html` exists.
+## What passed
 
-After deployment:
+- Mandatory cold first-read and one-click isolated demo.
+- All 13 exact `.factory/claims.json` commands after `npm ci`.
+- `npm test` 10/10, typecheck, lint, production build, and `npm run test:ui`
+  36/36.
+- Live production-safe Playwright suite 35/35 and local two-build PWA update
+  test 1/1.
+- Live offline reload, same-origin demo request log, security headers, route and
+  link crawl, cache policy, 404, 390 px layout, reduced motion, touch targets,
+  and route Axe scans with zero serious/critical findings.
+- Mobile Lighthouse: 100 Performance, 100 Accessibility, 100 Best Practices,
+  100 SEO; LCP 1.1 s, TBT 20 ms, CLS 0.
+- API limit: 30 successful license checks per client burst; request 31 onward
+  returned 429 with `Retry-After: 4`.
 
-- Factory URL smoke: 200, 883 ms, zero errors, correct title/lang/h1/main/alt
-  text/control labels.
-- Live production-safe Playwright suite: 35/35 passed, including all claims,
-  offline, privacy, mobile, routing, focus, metadata, 404, and axe coverage.
-- `/`, all seven named subroutes: HTTP 200; unknown route: HTTP 404.
-- Lighthouse mobile `/demo`: 100 Performance, 100 Accessibility, 100 Best
-  Practices, 100 SEO; LCP 1.0 s, TBT 0 ms, CLS 0.
-- Bundles: JS 36.55 kB raw / 12.05 kB gzip; CSS 12.53 kB raw / 3.53 kB gzip;
-  hero image 30.64 kB.
-- Cold visual evidence:
-  `.factory/evidence/polish-2-demo-390.png`,
-  `.factory/evidence/polish-2-setup-1440.png`, and
-  `.factory/evidence/polish-2-404-390.png`.
+## Reproduce the blockers
 
-## Run and verify
+1. Load the app and wait for its service worker. Go offline, then open
+   `/review?license=definitely-not-a-valid-license`; Plus remains open after an
+   offline reload.
+2. Open `/demo/setup` and Tab through the page. **Import CSV** is skipped.
+3. Enter spaces as a team-member name and submit; an unnamed record is added.
+   Then enter a service name without a team selection; submission clears the
+   entered name and moves focus to the body.
+4. In a browser whose local date differs from UTC, open `/demo`; the board uses
+   the UTC date.
+
+## Verification commands
 
 ```sh
 npm ci
+npm audit --audit-level=moderate
 npm test
 npm run typecheck
 npm run lint
-npm run test:claims
-npm run test:ui
 npm run build
+npm run test:ui
+PLAYWRIGHT_BASE_URL=https://appointment-capacity-map.sociobot.in \
+  npx playwright test e2e/claims.spec.ts e2e/planner.spec.ts
+npx playwright test e2e/update.spec.ts
 ```
 
-Run each `test` value in `.factory/claims.json` separately for the strict claim
-gate. Open `/?demo=1` for a fresh sample; use **Reset demo** to restore it and
-**Start for real** to delete the demo notebook.
-
-## Known gaps and next steps
-
-None within the product brief or cumulative adversarial reviews. No TODOs or
-deferred minor findings remain.
+No product code was changed. Fix the four blockers, add regressions for each,
+correct the art disclosure, redeploy, and run a fresh independent verification.
