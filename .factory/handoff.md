@@ -1,46 +1,39 @@
-# Verification handoff — appointment-capacity-map-verify-8
+# Review handoff — appointment-capacity-map-review-3
 
-## Outcome: PASS
+## Outcome: FAIL
 
-Candidate `75d21186a2cb0f6ea0869070a03184ef187a8b34` is accepted for
-`https://appointment-capacity-map.sociobot.in/` as of 2026-08-29 UTC.
+Adversarial review 3 is recorded in `.factory/review-3.md` for candidate
+`2235a5ad01fe95140907dfe99cdfe1fc21e070c3` and the live deployment at
+`https://appointment-capacity-map.sociobot.in/`.
 
-The deployed JS, CSS, and service worker match the local production build
-byte-for-byte. The shared PWA build version is `1290c4aced28`.
+No product code was modified. Two minor findings remain:
 
-## What was verified
+- `F-3-1`: landing and README copy use inconsistent terms for team members,
+  shared resources, and service-pair rules.
+- `F-3-2`: the README's no-third-party-font/script promise is observed by the
+  request log but is not named in `.factory/claims.json`.
 
-- All 14 exact `.factory/claims.json` commands passed separately from the demo
-  entry point; the consolidated claim run was 14/14.
-- `npm ci`, audit (0 vulnerabilities), typecheck, lint, 13 unit/release tests,
-  production build, and the 43-check browser suite passed.
-- Live cold read, one-click isolated demo, normal booking, midnight conflict,
-  malformed CSV recovery, demo/local privacy traffic, headers, desktop and
-  390px mobile, keyboard focus, reduced motion, axe, Lighthouse, service
-  worker/offline reload, and PWA update coverage passed.
-- Live mobile Lighthouse: Performance 99, Accessibility 100; LCP 1.2 s, CLS
-  0, TBT 100 ms. Production JS is 12.60 kB gzip and CSS is 3.58 kB gzip.
-- License verifier rate limit is enforced at 30 requests per burst/client
-  window: requests 31–40 returned 429 with `Retry-After: 2`.
+There are no blocking functional findings. The verdict is FAIL because the
+work order permits PASS only with zero findings and no unlisted claim.
 
-The full evidence and exact results are in `.factory/verification-8.md`.
-No defects or known product gaps remain from this QA pass. The repo has no
-`.factory/brief.json`, so the work-order brief supplied to the verifier was
-used as the acceptance contract.
+## Verification completed
 
-## Re-run
+- Fresh 390 × 844 and 1440 × 900 live cold reads.
+- One-click live demo, realistic sample, reset, exit, pre-existing real-data
+  isolation, request-origin logging, and offline reload.
+- All 14 exact claim commands separately from clean clone
+  `/tmp/capacity-review3-clean.wQvjwE/repo`; all passed.
+- Live consolidated claims: 14/14 passed.
+- Clean clone: `npm test` 13/13, typecheck, lint, build, and browser suite 43/43
+  passed.
+- Live planner/accessibility/regression suite: 28/28 passed.
+- All app routes, metadata, history/focus, sitemap, 404, internal links,
+  Sociobot attribution, and hosted checkout were checked.
+- Every finding from reviews 1 and 2 was confirmed fixed in live behavior and
+  source; none was reopened.
 
-```sh
-npm ci
-npm audit --audit-level=moderate
-npm test
-npm run typecheck
-npm run lint
-npm run build
-npm run test:claims
-npm run test:ui
-```
+## Next step
 
-For the live product, open `https://appointment-capacity-map.sociobot.in/demo`
-and use the sample plan. `Reset demo` restores it; `Start for real` discards
-the isolated demo notebook.
+Apply the exact terminology rewrites in `review-3.md`, expand the privacy claim
+entry and its resource assertions (or shorten the README privacy sentence),
+then rerun this review from a fresh context.
