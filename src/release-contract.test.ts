@@ -29,5 +29,6 @@ describe('release contracts', () => {
     expect(config).not.toContain("start_url: '/?v=1'")
     expect(config).toContain("const CACHE='capacity-map-'+VERSION")
     expect(config).toContain('start_url: `/?v=${version}`')
+    expect(config).toContain("createHash('sha256')")
   })
 })

@@ -1,15 +1,18 @@
-import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 
 function buildVersion() {
-  const fallback = `local-${Date.now().toString(36)}`
-  try {
-    const commit = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { encoding: 'utf8' }).trim()
-    execFileSync('git', ['diff', '--quiet'])
-    return commit
-  } catch {
-    return fallback
+  const hash = createHash('sha256')
+  const add = (path: string) => {
+    if (statSync(path).isDirectory()) {
+      for (const child of readdirSync(path).sort()) add(`${path}/${child}`)
+    } else {
+      hash.update(path).update(readFileSync(path))
+    }
   }
+  for (const path of ['src', 'public', 'index.html', 'package.json', 'package-lock.json', 'vite.config.ts']) add(path)
+  return hash.digest('hex').slice(0, 12)
 }
 
 const version = process.env.VITE_BUILD_ID || buildVersion()
