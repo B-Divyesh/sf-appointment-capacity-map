@@ -319,3 +319,8 @@ test('@claim:license-request-data sends only the pasted token in a bodyless Soci
   expect(licenseRequest!.method()).toBe('GET')
   expect(licenseRequest!.postData()).toBeNull()
 })
+
+test('@claim:generated-art-disclosure shows the generated notebook art disclosure', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('footer')).toContainText('Notebook art was generated for Capacity Map.')
+})

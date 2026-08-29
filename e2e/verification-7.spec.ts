@@ -138,8 +138,3 @@ test.describe('local calendar date', () => {
     expect(download.suggestedFilename()).toBe('capacity-map-2026-08-30.csv')
   })
 })
-
-test('the public footer discloses the generated notebook art', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('footer')).toContainText('Notebook art was generated for Capacity Map.')
-})

@@ -41,7 +41,7 @@ word.
 | It costs $29 as a one-time purchase. | 7 | Pass — `plus-price` |
 | See Plus details | 3 | Pass |
 | Plans stay in this browser. | 5 | Pass — `privacy-local-only` |
-| Notebook art was generated for Capacity Map. | 7 | Pass — provenance disclosure |
+| Notebook art was generated for Capacity Map. | 7 | Pass — `generated-art-disclosure` |
 | Terms | 1 | Pass |
 | Built by Param Factory | 4 | Pass |
 | Build version | 1 | Pass |

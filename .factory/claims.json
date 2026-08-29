@@ -89,5 +89,12 @@
     "where": "README privacy and legal terms",
     "test": "npm run test:claims -- --grep @claim:license-request-data",
     "sandbox": "fresh normal context with a URL license; intercept verification; assert exact Sociobot endpoint, sole license query parameter, GET method, and no body"
+  },
+  {
+    "id": "generated-art-disclosure",
+    "claim": "The notebook art was generated for Capacity Map.",
+    "where": "app and 404 footers, design record",
+    "test": "npm run test:claims -- --grep @claim:generated-art-disclosure",
+    "sandbox": "fresh home page; assert the exact generated-art disclosure is publicly visible in the footer"
   }
 ]
