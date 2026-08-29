@@ -1,4 +1,25 @@
-# Repair handoff — appointment-capacity-map-polish-3
+# Verification handoff — appointment-capacity-map-verify-9
+
+## Outcome: PASS
+
+Independent QA passed candidate
+`b070c3cddecbc458526e8661c3b024c96c6940f1` on 2026-08-29. The production
+deployment at `https://appointment-capacity-map.sociobot.in/` byte-matches
+the candidate's built application assets and PWA files (build
+`75c6ab225c95`).
+
+Fresh checkout evidence: `npm ci`; all 14 separately-run declared claim
+tests; `npm test` (15/15); `npm run typecheck`; `npm run lint`; `npm run
+build`; and `npm run test:ui` (43/43) all passed. Live cold first-read,
+request/privacy log, headers, desktop/mobile, keyboard/focus, automated Axe,
+offline reload, service-worker update, bundle budgets and API rate limiting
+were verified. The license endpoint accepted 30 invalid-token requests then
+returned `429` with `Retry-After: 4` on request 31.
+
+No defects were found. See `.factory/verification-9.md` for exact evidence,
+test coverage, limitations, and reproduction commands.
+
+# Previous repair handoff — appointment-capacity-map-polish-3
 
 ## Outcome: PASS
 
