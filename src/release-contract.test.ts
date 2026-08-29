@@ -1,6 +1,21 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+function channel(value: number) {
+  const fraction = value / 255
+  return fraction <= 0.04045 ? fraction / 12.92 : ((fraction + 0.055) / 1.055) ** 2.4
+}
+
+function luminance(hex: string) {
+  const [red, green, blue] = hex.slice(1).match(/../g)!.map((value) => channel(Number.parseInt(value, 16)))
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+
+function contrast(first: string, second: string) {
+  const values = [luminance(first), luminance(second)].sort((a, b) => b - a)
+  return (values[0] + 0.05) / (values[1] + 0.05)
+}
+
 describe('release contracts', () => {
   it('lists every claim with one matching browser regression', () => {
     const claims = JSON.parse(readFileSync('.factory/claims.json', 'utf8')) as { id: string; test: string }[]
@@ -30,5 +45,12 @@ describe('release contracts', () => {
     expect(config).toContain("const CACHE='capacity-map-'+VERSION")
     expect(config).toContain('start_url: `/?v=${version}`')
     expect(config).toContain("createHash('sha256')")
+  })
+
+  it('keeps small warning and danger text at 4.5:1 contrast on paper', () => {
+    const styles = readFileSync('src/styles.css', 'utf8')
+    const token = (name: string) => styles.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1] ?? ''
+    expect(contrast(token('red'), token('paper'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('ochre'), token('paper'))).toBeGreaterThanOrEqual(4.5)
   })
 })

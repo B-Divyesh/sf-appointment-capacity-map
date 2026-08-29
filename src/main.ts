@@ -9,6 +9,9 @@ type Draft = Omit<Booking, 'id' | 'createdAt'>
 const app = document.querySelector<HTMLDivElement>('#app')!
 const PRODUCT = 'appointment-capacity-map'
 const colours = ['#176b8a', '#b94e45', '#377353', '#a75a18', '#73518a']
+const CSV_HEADER = 'type,id,name,color,capacity,parallelSlots,minutes,staffIds,resourceIds,serviceA,serviceB,allowed,note,date,start,staffId,serviceId,client,createdAt'
+const CSV_TYPES = new Set(['staff', 'resource', 'service', 'rule', 'booking'])
+const LICENSE_CHECK_MS = 86_400_000
 const initialUrl = new URL(location.href)
 let demoMode = initialUrl.pathname === '/demo' || initialUrl.searchParams.get('demo') === '1'
 let data: Data = emptyData(); let page: Page = initialUrl.pathname === '/privacy' ? 'privacy' : initialUrl.pathname === '/terms' ? 'terms' : 'board'; let day = today(); let time = '09:00'; let draft: Draft | null = null
@@ -129,7 +132,6 @@ function wire() {
 }
 
 function exportCsv() {
-  const head = 'type,id,name,color,capacity,parallelSlots,minutes,staffIds,resourceIds,serviceA,serviceB,allowed,note,date,start,staffId,serviceId,client,createdAt'
   const sourceRows: (string | number)[][] = [
     ...data.staff.map((x) => ['staff', x.id, x.name, x.color, '', x.parallelSlots]),
     ...data.resources.map((x) => ['resource', x.id, x.name, x.color, x.capacity]),
@@ -137,13 +139,106 @@ function exportCsv() {
     ...data.rules.map((x) => ['rule', x.id, '', '', '', '', '', '', '', x.serviceA, x.serviceB, String(x.allowed), x.note]),
     ...data.bookings.map((x) => ['booking', x.id, '', '', '', '', x.minutes, '', x.resourceIds.join('|'), '', '', '', '', x.date, x.start, x.staffId, x.serviceId, x.client, x.createdAt])
   ]
-  const rows = [head, ...sourceRows.map((row) => row.map(csv).join(','))]
+  const rows = [CSV_HEADER, ...sourceRows.map((row) => row.map(csv).join(','))]
   const blob = new Blob([rows.join('\n')], { type: 'text/csv' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `capacity-map-${today()}.csv`; link.click(); URL.revokeObjectURL(link.href); message = 'CSV downloaded'; render()
 }
-function parseCsv(input: string) { const lines = input.trim().split(/\r?\n/); const parse = (line: string) => { const out: string[] = []; let current = ''; let quote = false; for (let i = 0; i < line.length; i++) { const char = line[i]; if (char === '"' && quote && line[i + 1] === '"') { current += '"'; i++ } else if (char === '"') quote = !quote; else if (char === ',' && !quote) { out.push(current); current = '' } else current += char } out.push(current); return out }; const headers = parse(lines.shift() ?? ''); if (headers[0] !== 'type') throw new Error('This does not look like a Capacity Map CSV.'); return lines.filter(Boolean).map((line) => Object.fromEntries(parse(line).map((value, i) => [headers[i], value]))) }
-async function importCsv(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return; try { const rows = parseCsv(await file.text()); const next = emptyData(); for (const row of rows) { if (!row.type || !row.id) throw new Error('One or more CSV rows is missing its type or ID.'); const list = (v: string) => v ? v.split('|').filter(Boolean) : []; if (row.type === 'staff') next.staff.push({ id: row.id, name: row.name, color: row.color || colours[0], parallelSlots: Math.max(1, Number(row.parallelSlots) || 1) }); else if (row.type === 'resource') next.resources.push({ id: row.id, name: row.name, color: row.color || colours[1], capacity: Math.max(1, Number(row.capacity) || 1) }); else if (row.type === 'service') next.services.push({ id: row.id, name: row.name, color: row.color || colours[2], minutes: Math.max(5, Number(row.minutes) || 30), staffIds: list(row.staffIds), resourceIds: list(row.resourceIds) }); else if (row.type === 'rule') next.rules.push({ id: row.id, serviceA: row.serviceA, serviceB: row.serviceB, allowed: row.allowed === 'true', note: row.note }); else if (row.type === 'booking') next.bookings.push({ id: row.id, date: row.date, start: row.start, minutes: Math.max(5, Number(row.minutes) || 30), staffId: row.staffId, serviceId: row.serviceId, resourceIds: list(row.resourceIds), client: row.client, createdAt: Number(row.createdAt) || Date.now() }) } if (next.services.some((x) => !x.name || !x.staffIds.length)) throw new Error('Each service needs a name and at least one team member.'); data = next; importError = ''; await persist('CSV imported into this device') } catch (error) { importError = error instanceof Error ? error.message : 'The CSV could not be imported.'; render() } }
+function parseCsv(input: string) {
+  const lines = input.trim().split(/\r?\n/)
+  const parse = (line: string) => {
+    const out: string[] = []; let current = ''; let quote = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"' && quote && line[i + 1] === '"') { current += '"'; i++ } else if (char === '"') quote = !quote
+      else if (char === ',' && !quote) { out.push(current); current = '' } else current += char
+    }
+    if (quote) throw new Error('A CSV row has an unclosed quote. Nothing was imported.')
+    out.push(current)
+    return out
+  }
+  const headers = parse(lines.shift() ?? '')
+  if (headers.join(',') !== CSV_HEADER) throw new Error('This does not look like a Capacity Map CSV.')
+  return lines.filter((line) => line.trim()).map((line) => {
+    const values = parse(line)
+    if (values.length > headers.length) throw new Error('A CSV row has more columns than expected. Nothing was imported.')
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])) as Record<string, string>
+  })
+}
 
-async function activateLicense(token: string) { localStorage.setItem(`sb_license:${PRODUCT}`, token); licensed = true; message = 'License restored — checking it quietly in the background.'; render(); const key = `sb_license_check:${PRODUCT}`; const old = localStorage.getItem(key); if (old && Date.now() - JSON.parse(old).at < 86400000) { licensed = JSON.parse(old).valid; render(); return } try { const response = await fetch(`https://api.sociobot.in/api/v1/products/${PRODUCT}/verify?license=${encodeURIComponent(token)}`); const verdict = await response.json() as { valid: boolean }; localStorage.setItem(key, JSON.stringify({ valid: verdict.valid, at: Date.now() })); if (!verdict.valid) { licensed = false; message = 'This license is no longer active. Your local plan is unchanged.'; render() } } catch { /* Offline stays optimistically unlocked until a later daily check. */ } }
+function checkedCsvData(rows: Record<string, string>[]): Data {
+  const next = emptyData()
+  const list = (value: string) => value ? value.split('|').filter(Boolean) : []
+  const integer = (value: string, label: string, minimum: number, maximum?: number) => {
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed < minimum || (maximum !== undefined && parsed > maximum)) throw new Error(`${label} must be a whole number from ${minimum}${maximum === undefined ? ' or more' : ` to ${maximum}`}. Nothing was imported.`)
+    return parsed
+  }
+  const ids = new Set<string>()
+  for (const row of rows) {
+    if (!row.type || !row.id) throw new Error('One or more CSV rows is missing its type or ID. Nothing was imported.')
+    if (!CSV_TYPES.has(row.type)) throw new Error(`Unsupported CSV row type “${row.type}”. Nothing was imported.`)
+    const identity = `${row.type}:${row.id}`
+    if (ids.has(identity)) throw new Error(`The CSV repeats ${row.type} ID “${row.id}”. Nothing was imported.`)
+    ids.add(identity)
+    if (row.type === 'staff') {
+      if (!row.name) throw new Error('Each team member needs a name. Nothing was imported.')
+      next.staff.push({ id: row.id, name: row.name, color: row.color || colours[0], parallelSlots: integer(row.parallelSlots, 'Parallel jobs', 1, 5) })
+    } else if (row.type === 'resource') {
+      if (!row.name) throw new Error('Each shared resource needs a name. Nothing was imported.')
+      next.resources.push({ id: row.id, name: row.name, color: row.color || colours[1], capacity: integer(row.capacity, 'Resource units', 1, 20) })
+    } else if (row.type === 'service') {
+      if (!row.name || !list(row.staffIds).length) throw new Error('Each service needs a name and at least one team member. Nothing was imported.')
+      next.services.push({ id: row.id, name: row.name, color: row.color || colours[2], minutes: integer(row.minutes, 'Service minutes', 5), staffIds: list(row.staffIds), resourceIds: list(row.resourceIds) })
+    } else if (row.type === 'rule') {
+      if (!row.serviceA || !row.serviceB || row.serviceA === row.serviceB || !['true', 'false'].includes(row.allowed)) throw new Error('Each service-pair rule needs two different services and a true or false setting. Nothing was imported.')
+      next.rules.push({ id: row.id, serviceA: row.serviceA, serviceB: row.serviceB, allowed: row.allowed === 'true', note: row.note })
+    } else {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(row.start) || !row.staffId || !row.serviceId) throw new Error('Each job needs a valid date, time, person, and service. Nothing was imported.')
+      next.bookings.push({ id: row.id, date: row.date, start: row.start, minutes: integer(row.minutes, 'Job minutes', 5), staffId: row.staffId, serviceId: row.serviceId, resourceIds: list(row.resourceIds), client: row.client, createdAt: integer(row.createdAt, 'Job creation time', 0) })
+    }
+  }
+  const staffIds = new Set(next.staff.map((item) => item.id)); const resourceIds = new Set(next.resources.map((item) => item.id)); const serviceIds = new Set(next.services.map((item) => item.id))
+  if (next.services.some((item) => item.staffIds.some((value) => !staffIds.has(value)) || item.resourceIds.some((value) => !resourceIds.has(value)))) throw new Error('A service refers to a person or resource that is not in this CSV. Nothing was imported.')
+  if (next.rules.some((item) => !serviceIds.has(item.serviceA) || !serviceIds.has(item.serviceB))) throw new Error('A service-pair rule refers to a service that is not in this CSV. Nothing was imported.')
+  if (next.bookings.some((item) => !staffIds.has(item.staffId) || !serviceIds.has(item.serviceId) || item.resourceIds.some((value) => !resourceIds.has(value)))) throw new Error('A job refers to a person, service, or resource that is not in this CSV. Nothing was imported.')
+  return next
+}
+
+async function importCsv(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const next = checkedCsvData(parseCsv(await file.text()))
+    data = next; importError = ''; await persist('CSV imported into this device')
+  } catch (error) {
+    importError = error instanceof Error ? error.message : 'The CSV could not be imported.'; render()
+  }
+}
+
+type LicenseCheck = { valid: boolean; at: number; token?: string }
+function savedLicenseCheck(key: string): LicenseCheck | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) ?? 'null') as LicenseCheck | null
+    return value && typeof value.valid === 'boolean' && Number.isFinite(value.at) ? value : null
+  } catch { return null }
+}
+async function activateLicense(token: string) {
+  localStorage.setItem(`sb_license:${PRODUCT}`, token)
+  const key = `sb_license_check:${PRODUCT}`; const old = savedLicenseCheck(key); const sameToken = !old?.token || old.token === token
+  licensed = sameToken ? old?.valid ?? true : true
+  if (old && sameToken && Date.now() - old.at < LICENSE_CHECK_MS) { render(); return }
+  const startedAt = Date.now()
+  localStorage.setItem(key, JSON.stringify({ valid: licensed, at: startedAt, token }))
+  message = 'License restored — checking it quietly in the background.'; render()
+  try {
+    const response = await fetch(`https://api.sociobot.in/api/v1/products/${PRODUCT}/verify?license=${encodeURIComponent(token)}`)
+    if (!response.ok) throw new Error('License check unavailable')
+    const verdict = await response.json() as { valid: boolean }
+    localStorage.setItem(key, JSON.stringify({ valid: verdict.valid, at: startedAt, token }))
+    licensed = verdict.valid
+    message = verdict.valid ? '' : 'This license is no longer active. Your local plan is unchanged.'
+    render()
+  } catch { /* The attempt timestamp prevents reload loops; the cached verdict stays in force until tomorrow. */ }
+}
 function setupLicense() { if (demoMode) { licensed = true; return } licensed = false; const params = new URLSearchParams(location.search); const fromUrl = params.get('license'); const token = fromUrl || localStorage.getItem(`sb_license:${PRODUCT}`); if (fromUrl) { localStorage.setItem(`sb_license:${PRODUCT}`, fromUrl); params.delete('license'); history.replaceState({}, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`) } if (token) void activateLicense(token) }
 
 window.addEventListener('online', () => render()); window.addEventListener('offline', () => render())
@@ -154,7 +249,10 @@ window.addEventListener('popstate', () => {
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((registration) => {
   const showUpdate = (worker: ServiceWorker | null) => { if (worker && navigator.serviceWorker.controller) { updateWaiting = worker; render() } }
   showUpdate(registration.waiting)
-  registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', () => { if (registration.installing?.state === 'installed') showUpdate(registration.waiting) }))
+  registration.addEventListener('updatefound', () => {
+    const installing = registration.installing
+    installing?.addEventListener('statechange', () => { if (installing.state === 'installed') showUpdate(installing) })
+  })
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (updateWaiting) location.reload() })
 }).catch(() => undefined))
 load(storageMode()).then(async (loaded) => {

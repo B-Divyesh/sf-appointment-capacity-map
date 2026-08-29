@@ -41,6 +41,21 @@ test('adds and retains a clear job while rejecting malformed CSV without data lo
   await expect(page.getByText('Ava', { exact: true })).toBeVisible()
 })
 
+test('rejects an unknown CSV row type without replacing the notebook', async ({ page }) => {
+  await page.goto('/demo')
+  await page.getByRole('button', { name: 'Notebook setup' }).click()
+  const unsupported = [
+    'type,id,name,color,capacity,parallelSlots,minutes,staffIds,resourceIds,serviceA,serviceB,allowed,note,date,start,staffId,serviceId,client,createdAt',
+    'unknown,bad,Unsupported row'
+  ].join('\n')
+  await page.locator('#import-file').setInputFiles({ name: 'unsupported.csv', mimeType: 'text/csv', buffer: Buffer.from(unsupported) })
+  await expect(page.getByRole('alert')).toHaveText('Unsupported CSV row type “unknown”. Nothing was imported.')
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Notebook setup' }).click()
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+})
+
 test('is keyboard operable and shows a designed focus indicator', async ({ page }) => {
   await page.goto('/')
   await page.keyboard.press('Tab')

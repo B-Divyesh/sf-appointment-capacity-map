@@ -32,21 +32,21 @@
     "claim": "Every blocked overlap names the person, shared resource, or service-pair rule responsible.",
     "where": "home how-it-works, board, README",
     "test": "npm run test:claims -- --grep @claim:conflict-explanation",
-    "sandbox": "fresh /demo sample with an intentional service-pair conflict; assert both visible explanations"
+    "sandbox": "fresh /demo sample; add one person and service; assert visible person, shared-resource, and service-pair explanations"
   },
   {
     "id": "two-week-review",
     "claim": "Capacity Map Plus groups conflicts across fourteen days.",
     "where": "home Plus section, Plus screen, README",
     "test": "npm run test:claims -- --grep @claim:two-week-review",
-    "sandbox": "fresh /demo sample where Plus is previewable without payment; open review; assert conflict count and reason"
+    "sandbox": "fresh /demo sample where Plus is previewable without payment; add conflicts on offsets 13 and 14; assert day 13 is included and day 14 is excluded"
   },
   {
     "id": "daily-license-check",
     "claim": "A saved Plus license is checked with Sociobot no more than once per day, and a revoked license disables Plus.",
     "where": "privacy page",
     "test": "npm run test:claims -- --grep @claim:daily-license-check",
-    "sandbox": "fresh normal context; intercept Sociobot verify; assert one request per day; expire the cache; return revoked; assert Plus locks"
+    "sandbox": "fresh normal context; delay and interrupt the first Sociobot verify with reload; assert one request per day; expire the cache; return revoked; assert Plus locks"
   },
   {
     "id": "plus-price",

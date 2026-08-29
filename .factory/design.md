@@ -21,9 +21,9 @@ in every context.
 | paper-deep | `#eadfc9` | ruled areas and callouts |
 | ink | `#203634` | primary writing and headings |
 | graphite | `#52635f` | supporting notes |
-| red-pencil | `#b94e45` | conflicts and destructive actions |
+| red-pencil | `#b5483f` | conflicts and destructive actions; 4.66:1 on paper |
 | blue-ink | `#176b8a` | primary action and staff marks |
-| ochre | `#a75a18` | resources and warning marks |
+| ochre | `#a35614` | resources and warning marks; 4.74:1 on paper |
 | moss | `#377353` | allowed/clear states |
 
 Typography uses the self-hosted-friendly system serif stack (`Georgia`, then
@@ -60,7 +60,7 @@ no people or brand and does not claim functionality. Prompt sheet:
   no trademarks, no photoreal calendar UI.
 
 Generated with the factory image deployment on 2026-08-28. The selected source
-and exact prompt are kept as `src/assets/capacity-notebook.prompt.json`; its
+and exact prompt are kept as `src/assets/capacity-notebook.png.json`; its
 optimised WebP is product-original and disclosed in the footer.
 
 The 1200×630 social preview in `public/capacity-map-social.webp` is a centred,
