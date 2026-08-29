@@ -1,4 +1,42 @@
-# Verification handoff — appointment-capacity-map-verify-9
+# Review handoff — appointment-capacity-map-review-4
+
+## Outcome: PASS
+
+No product code changed. The committed [review report](review-4.md) records a
+fresh adversarial review of the live deployment and current source. It found
+zero blocking or minor findings and confirms every finding from reviews 1–3 is
+still fixed.
+
+## Verification performed
+
+- Cold 390 px and desktop live contexts identified the job, audience, and
+  first action before scrolling.
+- The live one-click demo opened populated, kept its banner/reset/exit controls,
+  used only `demo:capacity`, removed it on exit, and made only product-origin
+  requests in the observed flow.
+- All 14 exact claim commands passed individually from a fresh clone; all 14
+  also passed together against the live URL.
+- Live `npm run test:ui` passed 43/43. Local `npm test` passed 15/15;
+  typecheck, lint, and build passed.
+- Live links, sitemap, robots, metadata, route focus/history, and the designed
+  HTTP 404 were checked.
+
+## How to reproduce
+
+```sh
+npm ci
+npm test
+npm run typecheck
+npm run lint
+npm run test:claims
+npm run test:ui
+npm run build
+```
+
+Set `PLAYWRIGHT_BASE_URL=https://appointment-capacity-map.sociobot.in` for the
+Playwright commands to target the deployment. Known gaps: none.
+
+# Previous verification handoff — appointment-capacity-map-verify-9
 
 ## Outcome: PASS
 
