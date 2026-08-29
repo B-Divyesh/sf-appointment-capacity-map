@@ -28,6 +28,19 @@ test('loads routes with one heading, history navigation, and no console errors',
   expect(errors).toEqual([])
 })
 
+test('adds and retains a clear job while rejecting malformed CSV without data loss', async ({ page }) => {
+  await page.goto('/demo')
+  await page.getByRole('button', { name: /Consultation with Leo: bookable/ }).click()
+  await page.getByRole('button', { name: 'Add clear job' }).click()
+  await expect(page.locator('.booking').filter({ hasText: '09:00' })).toContainText('Consultation')
+  await page.reload()
+  await expect(page.locator('.booking').filter({ hasText: '09:00' })).toContainText('Consultation')
+  await page.getByRole('button', { name: 'Notebook setup' }).click()
+  await page.locator('#import-file').setInputFiles({ name: 'broken.csv', mimeType: 'text/csv', buffer: Buffer.from('not,a,capacity,map') })
+  await expect(page.getByRole('alert')).toHaveText('This does not look like a Capacity Map CSV.')
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+})
+
 test('is keyboard operable and shows a designed focus indicator', async ({ page }) => {
   await page.goto('/')
   await page.keyboard.press('Tab')
