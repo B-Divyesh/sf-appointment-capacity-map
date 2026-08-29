@@ -1,0 +1,58 @@
+[
+  {
+    "id": "demo-isolation",
+    "claim": "Try realistic sample data in one click without reading or saving to the real notebook.",
+    "where": "home primary action, demo banner, README",
+    "test": "npm run test:claims -- --grep @claim:demo-isolation",
+    "sandbox": "fresh browser context; enter from the home action; inspect IndexedDB keys; leave with Start for real"
+  },
+  {
+    "id": "offline-reload",
+    "claim": "Works offline after the first visit.",
+    "where": "home facts, README",
+    "test": "npm run test:claims -- --grep @claim:offline-reload",
+    "sandbox": "fresh browser context at /demo; wait for service worker; reload once; set context offline; reload"
+  },
+  {
+    "id": "csv-roundtrip",
+    "claim": "Exports the full plan as CSV and imports a checked replacement plan.",
+    "where": "setup data tools, README",
+    "test": "npm run test:claims -- --grep @claim:csv-roundtrip",
+    "sandbox": "fresh /demo sample; inspect download rows; upload a small valid replacement CSV; assert visible replacement"
+  },
+  {
+    "id": "privacy-local-only",
+    "claim": "Planning data stays in this browser unless the user exports it; there is no analytics or employee tracking.",
+    "where": "home facts, setup, privacy, README",
+    "test": "npm run test:claims -- --grep @claim:privacy-local-only",
+    "sandbox": "record every request in a fresh /demo context while adding a job and opening data tools; assert product origin only"
+  },
+  {
+    "id": "conflict-explanation",
+    "claim": "Every blocked overlap names the person, shared resource, or service-pair rule responsible.",
+    "where": "home how-it-works, board, README",
+    "test": "npm run test:claims -- --grep @claim:conflict-explanation",
+    "sandbox": "fresh /demo sample with an intentional service-pair conflict; assert both visible explanations"
+  },
+  {
+    "id": "two-week-review",
+    "claim": "Capacity Map Plus groups conflicts across fourteen days.",
+    "where": "home Plus section, Plus screen, README",
+    "test": "npm run test:claims -- --grep @claim:two-week-review",
+    "sandbox": "fresh /demo sample where Plus is previewable without payment; open review; assert conflict count and reason"
+  },
+  {
+    "id": "daily-license-check",
+    "claim": "A saved Plus license is checked with Sociobot no more than once per day, and a revoked license disables Plus.",
+    "where": "privacy page",
+    "test": "npm run test:claims -- --grep @claim:daily-license-check",
+    "sandbox": "fresh normal context; intercept Sociobot verify; assert one request per day; expire the cache; return revoked; assert Plus locks"
+  },
+  {
+    "id": "plus-price",
+    "claim": "Capacity Map Plus is shown as a $29 one-time purchase through the registered Sociobot checkout.",
+    "where": "home facts, home Plus section, Plus screen, README",
+    "test": "npm run test:claims -- --grep @claim:plus-price",
+    "sandbox": "fresh normal context; open the Plus screen; assert exact price wording and registered checkout URL"
+  }
+]

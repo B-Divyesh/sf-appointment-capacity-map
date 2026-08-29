@@ -62,3 +62,8 @@ no people or brand and does not claim functionality. Prompt sheet:
 Generated with the factory image deployment on 2026-08-28. The selected source
 and exact prompt are kept as `src/assets/capacity-notebook.prompt.json`; its
 optimised WebP is product-original and disclosed in the footer.
+
+The 1200×630 social preview in `public/capacity-map-social.webp` is a centred,
+cropped derivative of that same original illustration. The dark-ink demo strip
+uses the notebook's cover colour so sample mode stays visibly distinct without
+introducing a second visual system.

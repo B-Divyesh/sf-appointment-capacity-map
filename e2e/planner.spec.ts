@@ -1,24 +1,84 @@
 import { expect, test } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-test('models a clear job and remains usable offline after first visit', async ({ page, context }) => {
+test('cold first screen states the job, audience, action outcome, and three facts', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Try a guided example' }).click()
-  await expect(page.getByRole('heading', { name: 'What can book now' })).toBeVisible()
-  await page.getByRole('button', { name: /Consultation with Ava: bookable/ }).click()
-  await expect(page.getByText('Clear to book')).toBeVisible()
-  await page.getByRole('button', { name: 'Add clear job' }).click()
-  await expect(page.getByText('Jobs on this day')).toBeVisible()
-  await page.evaluate(() => navigator.serviceWorker.ready)
-  await context.setOffline(true)
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'What can book now' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Check which service jobs can overlap' })).toBeVisible()
+  await expect(page.getByText(/service businesses with two to ten people/i)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Try it with sample data' })).toBeVisible()
+  await expect(page.getByText('Loads a separate notebook with a realistic day plan.')).toBeVisible()
+  await expect(page.locator('.plain-facts li')).toHaveText([
+    'Your plan stays in this browser.',
+    'Works offline after the first visit.',
+    'Core planning is free. Plus costs $29 once.'
+  ])
 })
 
-test('has no serious accessibility violations on the empty notebook', async ({ page }) => {
+test('loads routes with one heading, history navigation, and no console errors', async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto('/')
-  await page.waitForLoadState('networkidle')
+  await page.getByRole('link', { name: 'Privacy' }).first().click()
+  await expect(page).toHaveURL(/\/privacy$/)
+  await expect(page).toHaveTitle('Privacy — Capacity Map')
+  await expect(page.locator('h1')).toHaveCount(1)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Check which service jobs can overlap' })).toBeFocused()
+  expect(errors).toEqual([])
+})
+
+test('is keyboard operable and shows a designed focus indicator', async ({ page }) => {
+  await page.goto('/')
+  await page.keyboard.press('Tab')
+  const skip = page.getByRole('link', { name: 'Skip to planner' })
+  await expect(skip).toBeFocused()
+  expect(await skip.evaluate((element) => getComputedStyle(element).outlineWidth)).toBe('3px')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('#main')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('link', { name: 'Try it with sample data' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/demo$/)
+})
+
+test('fits planner navigation at 390px without horizontal clipping', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/demo')
+  const dimensions = await page.locator('.tabs').evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }))
+  expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client)
+  await expect(page.getByRole('button', { name: /Two-week review/ })).toBeInViewport()
+  await page.screenshot({ path: '.factory/evidence/mobile-390.png', fullPage: true })
+})
+
+for (const route of ['/', '/demo', '/privacy', '/terms']) {
+  test(`has no serious accessibility violations on ${route}`, async ({ page }) => {
+    await page.goto(route)
+    await page.waitForLoadState('networkidle')
+    const report = await new AxeBuilder({ page }).analyze()
+    expect(report.violations.filter((item) => ['serious', 'critical'].includes(item.impact ?? ''))).toEqual([])
+  })
+}
+
+test('uses one build version for the cache and install URL', async ({ request }) => {
+  const worker = await (await request.get('/sw.js')).text()
+  const manifest = await (await request.get('/manifest.webmanifest')).json() as { start_url: string }
+  const version = worker.match(/const VERSION="([^"]+)"/)?.[1]
+  expect(version).toBeTruthy()
+  expect(version).not.toBe('1')
+  expect(worker).toContain("const CACHE='capacity-map-'+VERSION")
+  expect(worker).toContain("type==='SKIP_WAITING'")
+  expect(manifest.start_url).toBe(`/?v=${version}`)
+})
+
+test('keeps browser main-thread blocking below 200ms in the sample planner', async ({ page }) => {
+  await page.addInitScript(() => {
+    const durations: number[] = []
+    new PerformanceObserver((list) => durations.push(...list.getEntries().map((entry) => entry.duration - 50))).observe({ type: 'longtask', buffered: true })
+    Object.defineProperty(window, '__blocking', { get: () => durations.reduce((sum, value) => sum + Math.max(0, value), 0) })
+  })
+  await page.goto('/demo')
   await page.waitForTimeout(500)
-  const report = await new AxeBuilder({ page }).analyze()
-  expect(report.violations.filter((item) => ['serious', 'critical'].includes(item.impact ?? ''))).toEqual([])
+  const blocking = await page.evaluate(() => (window as typeof window & { __blocking: number }).__blocking)
+  expect(blocking).toBeLessThan(200)
 })

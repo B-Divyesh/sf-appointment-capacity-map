@@ -1,52 +1,61 @@
 # Capacity Map
 
-Capacity Map is a local-first, offline-capable planning notebook for two-to-ten
-person service teams. It answers a practical question before a booking is made:
-**can this job overlap, and why?**
+Capacity Map checks which service jobs can overlap before a booking is made.
+It is for service businesses with two to ten people that already use a calendar.
 
-It is for businesses that already have a calendar but need a simple, explainable
-way to model people, job types, shared equipment, and no-overlap rules. It does
-not make public booking pages, connect to calendars, take payments, or collect
-employee surveillance data.
+The planner records people, services, shared equipment, and no-overlap rules. It
+names the exact constraint behind a blocked time. Planning data stays in the
+current browser unless the user exports it, and the installed app works offline
+after its first visit.
 
-## What it does
+## Try the isolated demo
 
-- Records staff parallel capacity, services, and shared resources such as chairs
-  or vans.
-- Checks a proposed job against overlapping staff, equipment, and service-pair
-  rules, explaining the exact reason when it cannot fit.
-- Keeps planning records in the browser’s IndexedDB, so the core app works
-  offline after the first load.
-- Imports and exports a portable CSV file; export is never gated.
-- Includes an optional $29 one-time Capacity Map Plus unlock for a two-week
-  conflict review. The hosted checkout and license verification use Sociobot.
+Open `/demo` or choose **Try it with sample data** on the home page. The demo
+loads two people, three services, two shared resources, and three jobs. It uses
+the `demo:capacity` IndexedDB key and never reads or writes the real notebook.
+Choose **Reset demo** to restore the sample or **Start for real** to discard it.
 
-## Develop
+## Features
 
-Requirements: Node 22+.
+- Check staff, equipment, and service-pair conflicts with a plain explanation.
+- Import and export the full plan as CSV.
+- Keep core planning and CSV export free.
+- Preview the fourteen-day conflict review in demo mode.
+- Buy Capacity Map Plus for $29 as a one-time purchase through Sociobot.
 
-```sh
-npm install
-npm run dev
-```
+Capacity Map does not make public booking pages, connect to calendars, take
+payments itself, or collect employee tracking data.
 
-## Verify and build
+## Develop and verify
+
+Use Node 22 or newer.
 
 ```sh
-npm test              # rule-engine unit tests
-npx playwright test   # browser, offline, and Axe accessibility checks
-npm run build          # produces ./dist with index.html at its root
-npm run preview
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run test:claims
+npm run test:ui
+npm run build
 ```
 
-`dist/` is the static deployment directory. The generated service worker
-precaches the built app shell and provides an offline fallback on a first visit.
+Each public claim and its exact sandbox command is listed in
+`.factory/claims.json`. Browser tests use the `/demo` entry point and do not
+need an account or license.
 
-## Privacy and data
+## Deploy
 
-All planning data stays in the current browser unless you choose to export a
-CSV. See `/privacy` and `/terms` in the running app. The visual direction and
-original-asset provenance are recorded in `.factory/design.md`.
+`npm run build` produces the static PWA in `dist/`. Deploy that directory to
+Azure Static Web Apps. `staticwebapp.config.json` supplies route rewrites,
+security headers, immutable asset caching, manifest MIME handling, and the 404
+response. The factory owns DNS and infrastructure.
+
+## Privacy and legal terms
+
+Read `/privacy` and `/terms` in the running app. License verification sends only
+the pasted token to `api.sociobot.in`, at most once per day. There are no
+analytics, third-party fonts, or third-party scripts.
 
 ## License
 

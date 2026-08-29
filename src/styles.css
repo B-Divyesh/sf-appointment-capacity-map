@@ -51,6 +51,10 @@ button,
   cursor: pointer;
   font-weight: 650;
 }
+a {
+  color: var(--blue);
+  text-underline-offset: 3px;
+}
 button:hover,
 .button-link:hover {
   background: var(--paper-deep);
@@ -120,6 +124,18 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+header nav {
+  display: flex;
+  gap: 18px;
+  margin-left: auto;
+  margin-right: 24px;
+}
+header nav a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
 }
 .brand {
   display: flex;
@@ -205,12 +221,24 @@ h3,
 p {
   margin-top: 0;
 }
+h1 {
+  font:
+    700 clamp(34px, 5vw, 58px) / 1.02 Georgia,
+    serif;
+  letter-spacing: -0.045em;
+  margin-bottom: 16px;
+  max-width: 18ch;
+}
 h2 {
   font:
     700 clamp(27px, 4vw, 43px) / 1.08 Georgia,
     serif;
   letter-spacing: -0.04em;
   margin-bottom: 12px;
+}
+.page-title {
+  font-size: clamp(30px, 4vw, 46px);
+  margin-bottom: 30px;
 }
 h3 {
   font:
@@ -277,6 +305,14 @@ select {
 .section-label h3 {
   margin: 0;
 }
+.section-label h2,
+.setup-section h2,
+.data-tools h2 {
+  font: 700 19px/1.25 Georgia, serif;
+  letter-spacing: 0;
+  margin-bottom: 12px;
+}
+.section-label h2 { margin: 0; }
 .section-label span {
   font-size: 14px;
   color: var(--muted);
@@ -326,13 +362,18 @@ select {
 .dot,
 .booking-mark {
   display: block;
-  background: var(--mark);
+  background: var(--muted);
   width: 14px;
   height: 14px;
   border-radius: 50%;
   flex: 0 0 auto;
   box-shadow: 2px 2px 0 #20363433;
 }
+.mark-0 { background: var(--blue) !important; }
+.mark-1 { background: var(--red) !important; }
+.mark-2 { background: var(--moss) !important; }
+.mark-3 { background: var(--ochre) !important; }
+.mark-4 { background: #73518a !important; }
 .day-list {
   max-width: 800px;
 }
@@ -396,6 +437,89 @@ select {
   border: 1.5px solid var(--ink);
   box-shadow: 9px 9px 0 var(--paper-deep);
   transform: rotate(-1deg);
+}
+.audience {
+  max-width: 57ch;
+  font-size: 18px;
+}
+.hero-actions {
+  margin: 24px 0 12px;
+}
+.hero-actions > span {
+  color: var(--muted);
+  max-width: 28ch;
+  font-size: 14px;
+}
+.plain-facts {
+  padding: 18px 0 0;
+  margin: 18px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.plain-facts li::before {
+  content: "✓";
+  color: var(--moss);
+  font-weight: 900;
+  margin-right: 9px;
+}
+.landing-section {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 2px solid var(--ink);
+}
+.landing-section > p {
+  max-width: 64ch;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  padding: 0;
+  list-style-position: inside;
+}
+.steps li {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.steps b,
+.steps span {
+  display: block;
+}
+.steps span {
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.restrained {
+  background: #eadfc977;
+  padding: 24px;
+}
+.plus-note {
+  max-width: 680px;
+}
+.demo-banner {
+  max-width: 1072px;
+  margin: 0 auto 12px;
+  min-height: 54px;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.demo-banner span {
+  display: flex;
+  gap: 9px;
+}
+.demo-banner button {
+  min-height: 38px;
+  border-color: var(--paper);
+  background: transparent;
+  color: var(--paper);
 }
 .button-row {
   display: flex;
@@ -608,17 +732,29 @@ select {
   header {
     padding: 12px 16px;
     min-height: 68px;
+    flex-wrap: wrap;
+    gap: 0 14px;
+  }
+  header nav {
+    order: 2;
+    margin: 0 0 0 auto;
+    gap: 14px;
   }
   .local-status {
+    order: 3;
+    flex-basis: 100%;
     font-size: 12px;
+    text-align: right;
   }
   .tabs {
     padding: 0 12px;
-    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .tab {
-    white-space: nowrap;
-    padding: 9px 12px;
+    white-space: normal;
+    padding: 7px 5px;
+    line-height: 1.2;
   }
   main {
     padding: 30px 16px 48px;
@@ -639,6 +775,14 @@ select {
   }
   .empty-state img {
     order: 2;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+  }
+  .demo-banner {
+    margin: 0 12px 12px;
+    align-items: start;
+    flex-direction: column;
   }
   .form-grid {
     grid-template-columns: 1fr 1fr;
@@ -689,10 +833,7 @@ select {
   .brand {
     font-size: 23px;
   }
-  .local-status {
-    max-width: 110px;
-    text-align: right;
-  }
+  .local-status { max-width: none; }
   .form-grid {
     grid-template-columns: 1fr;
   }

@@ -1,4 +1,4 @@
-import type { Booking, Data, Id, Service } from './types'
+import { today, type Booking, type Data, type Id, type Service } from './types'
 
 export type Conflict = { kind: 'staff' | 'resource' | 'pair'; label: string; detail: string; bookingId?: Id }
 const minutes = (time: string) => { const [h, m] = time.split(':').map(Number); return h * 60 + m }
@@ -37,7 +37,7 @@ export function availabilityFor(data: Data, service: Service, staffId: Id, date:
   return conflictsFor(data, draft)
 }
 
-export function seededData(): Data {
+export function seededData(date = today()): Data {
   const ava = { id: 'ava', name: 'Ava', color: '#176b8a', parallelSlots: 1 }
   const leo = { id: 'leo', name: 'Leo', color: '#a75a18', parallelSlots: 1 }
   const chair = { id: 'chair', name: 'Treatment chair', capacity: 1, color: '#b94e45' }
@@ -45,5 +45,15 @@ export function seededData(): Data {
   const consult = { id: 'consult', name: 'Consultation', minutes: 30, staffIds: [ava.id, leo.id], resourceIds: [], color: '#176b8a' }
   const treatment = { id: 'treatment', name: 'Treatment', minutes: 60, staffIds: [ava.id], resourceIds: [chair.id], color: '#b94e45' }
   const visit = { id: 'visit', name: 'Mobile visit', minutes: 60, staffIds: [leo.id], resourceIds: [van.id], color: '#377353' }
-  return { staff: [ava, leo], resources: [chair, van], services: [consult, treatment, visit], rules: [{ id: 'treatment-visit', serviceA: treatment.id, serviceB: visit.id, allowed: false, note: 'Keep a specialist available for hand-off while a mobile visit is out.' }], bookings: [] }
+  return {
+    staff: [ava, leo],
+    resources: [chair, van],
+    services: [consult, treatment, visit],
+    rules: [{ id: 'treatment-visit', serviceA: treatment.id, serviceB: visit.id, allowed: false, note: 'Keep a specialist available for hand-off while a mobile visit is out.' }],
+    bookings: [
+      { id: 'sample-consult', date, start: '10:30', minutes: 30, staffId: ava.id, serviceId: consult.id, resourceIds: [], client: 'New client call', createdAt: 1 },
+      { id: 'sample-treatment', date, start: '13:00', minutes: 60, staffId: ava.id, serviceId: treatment.id, resourceIds: [chair.id], client: 'Follow-up', createdAt: 2 },
+      { id: 'sample-visit', date, start: '13:15', minutes: 60, staffId: leo.id, serviceId: visit.id, resourceIds: [van.id], client: 'Home visit', createdAt: 3 }
+    ]
+  }
 }
