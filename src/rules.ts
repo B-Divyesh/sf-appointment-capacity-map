@@ -1,10 +1,14 @@
 import { today, type Booking, type Data, type Id, type Service } from './types'
 
 export type Conflict = { kind: 'staff' | 'resource' | 'pair'; label: string; detail: string; bookingId?: Id }
-const minutes = (time: string) => { const [h, m] = time.split(':').map(Number); return h * 60 + m }
+const instant = (booking: Booking) => {
+  const [year, month, day] = booking.date.split('-').map(Number)
+  const [hour, minute] = booking.start.split(':').map(Number)
+  return Date.UTC(year, month - 1, day, hour, minute)
+}
 export const overlaps = (a: Booking, b: Booking) => {
-  if (a.date !== b.date) return false
-  return minutes(a.start) < minutes(b.start) + b.minutes && minutes(b.start) < minutes(a.start) + a.minutes
+  const aStart = instant(a); const bStart = instant(b)
+  return aStart < bStart + b.minutes * 60_000 && bStart < aStart + a.minutes * 60_000
 }
 export const serviceById = (data: Data, value: Id) => data.services.find((x) => x.id === value)
 export const staffById = (data: Data, value: Id) => data.staff.find((x) => x.id === value)
@@ -17,6 +21,7 @@ export function conflictsFor(data: Data, draft: Booking): Conflict[] {
   if (!service || !person) return [{ kind: 'staff', label: 'Choose a service and team member', detail: 'This job needs both before capacity can be checked.' }]
   const active = data.bookings.filter((b) => b.id !== draft.id && overlaps(b, draft))
   const results: Conflict[] = []
+  if (!service.staffIds.includes(person.id)) results.push({ kind: 'staff', label: `${person.name} does not provide ${service.name}`, detail: 'Choose a team member listed for this service.' })
   const staffUse = active.filter((b) => b.staffId === draft.staffId).length + 1
   if (staffUse > person.parallelSlots) results.push({ kind: 'staff', label: `${person.name} is at capacity`, detail: `${staffUse} overlapping jobs would use ${person.name}; their limit is ${person.parallelSlots}.` })
   for (const resourceId of draft.resourceIds) {

@@ -7,6 +7,7 @@ import { emptyData, id, today, type Booking, type Data, type Id } from './types'
 type Page = 'board' | 'setup' | 'review' | 'privacy' | 'terms'
 type AppRoute = '/' | '/setup' | '/review' | '/demo' | '/demo/setup' | '/demo/review' | '/privacy' | '/terms'
 type Draft = Omit<Booking, 'id' | 'createdAt'>
+type DraftReturnFocus = { kind: 'proposal'; value: string } | { kind: 'new' }
 const app = document.querySelector<HTMLDivElement>('#app')!
 const PRODUCT = 'appointment-capacity-map'
 const colours = ['#176b8a', '#b94e45', '#377353', '#a75a18', '#73518a']
@@ -18,6 +19,7 @@ const pageFromPath = (path: string): Page => path === '/privacy' ? 'privacy' : p
 let demoMode = initialUrl.pathname === '/demo' || initialUrl.pathname.startsWith('/demo/') || initialUrl.searchParams.get('demo') === '1'
 let data: Data = emptyData(); let page: Page = pageFromPath(initialUrl.pathname); let day = today(); let time = '09:00'; let draft: Draft | null = null
 let message = ''; let licensed = false; let importError = ''; let updateWaiting: ServiceWorker | null = null
+let draftReturnFocus: DraftReturnFocus | null = null
 
 const esc = (value: string | number) => String(value).replace(/[&<>'"]/g, (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[s]!))
 const csv = (v: string | number | undefined) => `"${String(v ?? '').replaceAll('"', '""')}"`
@@ -54,7 +56,13 @@ function bookingCard(b: Booking) {
 
 function bookingSheet() {
   const service = serviceById(data, draft!.serviceId); const issues = service ? conflictsFor(data, { ...draft!, id: 'new', createdAt: 0 }) : []
-  return `<section class="sheet" aria-labelledby="job-title"><div class="sheet-heading"><div><p class="eyebrow">Proposed job</p><h2 id="job-title">Check before you book</h2></div><button class="icon-button" data-cancel-draft aria-label="Close proposed job">×</button></div><form id="booking-form"><div class="form-grid"><label>Service <select name="serviceId" required>${data.services.map((x) => `<option value="${x.id}" ${x.id === draft!.serviceId ? 'selected' : ''}>${esc(x.name)} · ${x.minutes} min</option>`).join('')}</select></label><label>Team member <select name="staffId" required>${data.staff.filter((x) => service?.staffIds.includes(x.id)).map((x) => `<option value="${x.id}" ${x.id === draft!.staffId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label><label>Date <input name="date" type="date" value="${draft!.date}" required></label><label>Start <input name="start" type="time" value="${draft!.start}" required></label><label>Length (minutes) <input name="minutes" type="number" min="5" step="5" value="${draft!.minutes}" required></label><label>Reference (optional) <input name="client" maxlength="80" value="${esc(draft!.client)}" placeholder="e.g. Jones repair"></label></div><p class="resource-note"><b>Shared resources:</b> ${esc(service ? resourceNames(service.resourceIds) : 'Select a service')}</p>${issues.length ? `<div class="explanation danger" role="alert"><strong>Cannot add this job yet</strong>${issues.map((x) => `<span>${esc(x.label)} — ${esc(x.detail)}</span>`).join('')}</div>` : '<div class="explanation good"><strong>Clear to book</strong><span>The selected person, resources, and service rules all have capacity.</span></div>'}<div class="button-row"><button class="primary" ${issues.length ? 'disabled' : ''}>Add clear job</button><button type="button" data-cancel-draft>Cancel</button></div></form></section>`
+  return `<section class="sheet" role="dialog" aria-labelledby="job-title"><div class="sheet-heading"><div><p class="eyebrow">Proposed job</p><h2 id="job-title" tabindex="-1">Check before you book</h2></div><button class="icon-button" data-cancel-draft aria-label="Close proposed job">×</button></div><form id="booking-form"><div class="form-grid"><label>Service <select name="serviceId" required>${data.services.map((x) => `<option value="${x.id}" ${x.id === draft!.serviceId ? 'selected' : ''}>${esc(x.name)} · ${x.minutes} min</option>`).join('')}</select></label><label>Team member <select name="staffId" required>${data.staff.filter((x) => service?.staffIds.includes(x.id)).map((x) => `<option value="${x.id}" ${x.id === draft!.staffId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label><label>Date <input name="date" type="date" value="${draft!.date}" required></label><label>Start <input name="start" type="time" value="${draft!.start}" required></label><label>Length (minutes) <input name="minutes" type="number" min="5" step="5" value="${draft!.minutes}" required></label><label>Reference (optional) <input name="client" maxlength="80" value="${esc(draft!.client)}" placeholder="e.g. Jones repair"></label></div><p class="resource-note"><b>Shared resources:</b> ${esc(service ? resourceNames(service.resourceIds) : 'Select a service')}</p>${bookingDecision(issues)}<div class="button-row"><button class="primary" ${issues.length ? 'disabled' : ''}>Add clear job</button><button type="button" data-cancel-draft>Cancel</button></div></form></section>`
+}
+
+function bookingDecision(issues: ReturnType<typeof conflictsFor>) {
+  return issues.length
+    ? `<div class="explanation danger" role="alert"><strong>Cannot add this job yet</strong>${issues.map((x) => `<span>${esc(x.label)} — ${esc(x.detail)}</span>`).join('')}</div>`
+    : '<div class="explanation good" role="status"><strong>Clear to book</strong><span>The selected person, resources, and service rules all have capacity.</span></div>'
 }
 
 function setupView() {
@@ -117,19 +125,135 @@ async function routeTo(path: AppRoute, replace = false) {
   }
   page = pageFromPath(path)
   draft = null
+  draftReturnFocus = null
   if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path)
   render(true)
 }
 
 function inputValues(form: HTMLFormElement, key: string) { return [...form.querySelectorAll<HTMLInputElement>(`input[name="${key}"]:checked`)].map((x) => x.value) }
+function openDraft(next: Draft, returnFocus: DraftReturnFocus) {
+  draft = next
+  draftReturnFocus = returnFocus
+  render()
+  app.querySelector<HTMLHeadingElement>('#job-title')?.focus()
+}
+
+function closeDraft() {
+  const returnFocus = draftReturnFocus
+  draft = null
+  draftReturnFocus = null
+  render()
+  const target = returnFocus?.kind === 'new'
+    ? app.querySelector<HTMLButtonElement>('[data-new-booking]')
+    : [...app.querySelectorAll<HTMLButtonElement>('[data-propose]')].find((button) => button.dataset.propose === returnFocus?.value)
+  target?.focus()
+}
+
+function syncDraftFromForm(form: HTMLFormElement) {
+  if (!draft) return { serviceChanged: false }
+  const values = new FormData(form)
+  const service = serviceById(data, String(values.get('serviceId')))
+  if (!service) return { serviceChanged: false }
+  const serviceChanged = service.id !== draft.serviceId
+  const selectedStaff = String(values.get('staffId'))
+  draft = {
+    serviceId: service.id,
+    staffId: service.staffIds.includes(selectedStaff) ? selectedStaff : service.staffIds[0] ?? '',
+    date: String(values.get('date')),
+    start: String(values.get('start')),
+    minutes: serviceChanged ? service.minutes : Number(values.get('minutes')),
+    resourceIds: service.resourceIds,
+    client: String(values.get('client')).trim()
+  }
+  return { serviceChanged }
+}
+
+function refreshBookingSheet(focusName: string) {
+  const sheet = app.querySelector<HTMLElement>('.sheet')
+  if (!sheet || !draft) return
+  sheet.outerHTML = bookingSheet()
+  wireBookingSheet()
+  app.querySelector<HTMLElement>(`#booking-form [name="${focusName}"]`)?.focus()
+}
+
+function refreshBookingDecision() {
+  if (!draft) return
+  const issues = conflictsFor(data, { ...draft, id: 'new', createdAt: 0 })
+  const explanation = app.querySelector<HTMLElement>('#booking-form .explanation')
+  if (explanation) explanation.outerHTML = bookingDecision(issues)
+  const submit = app.querySelector<HTMLButtonElement>('#booking-form button[type="submit"], #booking-form button:not([type])')
+  if (submit) submit.disabled = issues.length > 0
+}
+
+function wireBookingSheet() {
+  app.querySelectorAll<HTMLButtonElement>('[data-cancel-draft]').forEach((el) => el.onclick = closeDraft)
+  const form = app.querySelector<HTMLFormElement>('#booking-form')
+  form?.addEventListener('input', (event) => {
+    const target = event.target as HTMLInputElement | HTMLSelectElement
+    const focusName = target.name
+    const { serviceChanged } = syncDraftFromForm(form)
+    if (focusName === 'client') return
+    if (serviceChanged) refreshBookingSheet('serviceId')
+    else refreshBookingDecision()
+  })
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    syncDraftFromForm(event.currentTarget as HTMLFormElement)
+    if (!draft) return
+    const next: Booking = { ...draft, id: id(), createdAt: Date.now() }
+    if (conflictsFor(data, next).length) {
+      message = 'This job conflicts with the current plan. Change the highlighted choice.'
+      render()
+      app.querySelector<HTMLElement>('.explanation[role="alert"]')?.focus()
+      return
+    }
+    data.bookings.push(next)
+    draft = null
+    draftReturnFocus = null
+    await persist('Clear job added')
+  })
+}
+
+function plural(count: number, one: string, many = `${one}s`) { return `${count} ${count === 1 ? one : many}` }
+
+function removalWarning(type: string, removeId: string) {
+  if (type === 'staff') {
+    const person = staffById(data, removeId)
+    const removedServices = data.services.filter((service) => service.staffIds.includes(removeId) && service.staffIds.length === 1)
+    const removedServiceIds = new Set(removedServices.map((service) => service.id))
+    const removedJobs = data.bookings.filter((booking) => booking.staffId === removeId || removedServiceIds.has(booking.serviceId))
+    const removedRules = data.rules.filter((rule) => removedServiceIds.has(rule.serviceA) || removedServiceIds.has(rule.serviceB))
+    const effects = [
+      removedJobs.length ? plural(removedJobs.length, 'job') : '',
+      removedServices.length ? `${plural(removedServices.length, 'service')} with no remaining team member` : '',
+      removedRules.length ? plural(removedRules.length, 'service-pair rule') : ''
+    ].filter(Boolean)
+    return `Remove ${person?.name ?? 'this team member'}?${effects.length ? ` This also removes ${effects.join(', ').replace(/, ([^,]*)$/, ', and $1')}.` : ''} This cannot be undone.`
+  }
+  if (type === 'resource') {
+    const resource = resourceById(data, removeId)
+    const serviceCount = data.services.filter((service) => service.resourceIds.includes(removeId)).length
+    const jobCount = data.bookings.filter((booking) => booking.resourceIds.includes(removeId)).length
+    const effects = [serviceCount ? plural(serviceCount, 'service') : '', jobCount ? plural(jobCount, 'job') : ''].filter(Boolean)
+    return `Remove ${resource?.name ?? 'this shared resource'}?${effects.length ? ` It will also be removed from ${effects.join(' and ')}.` : ''} This cannot be undone.`
+  }
+  if (type === 'service') {
+    const service = serviceById(data, removeId)
+    const jobCount = data.bookings.filter((booking) => booking.serviceId === removeId).length
+    const ruleCount = data.rules.filter((rule) => rule.serviceA === removeId || rule.serviceB === removeId).length
+    const effects = [jobCount ? plural(jobCount, 'job') : '', ruleCount ? plural(ruleCount, 'service-pair rule') : ''].filter(Boolean)
+    return `Remove ${service?.name ?? 'this service'}?${effects.length ? ` This also removes ${effects.join(' and ')}.` : ''} This cannot be undone.`
+  }
+  return 'Remove this service-pair rule? This cannot be undone.'
+}
+
 function wire() {
   app.querySelectorAll<HTMLAnchorElement>('[data-route]').forEach((el) => el.onclick = (event) => { event.preventDefault(); void routeTo(el.dataset.route as AppRoute) })
-  app.querySelectorAll<HTMLButtonElement>('[data-propose]').forEach((el) => el.onclick = () => { const [serviceId, staffId] = el.dataset.propose!.split('|'); const service = serviceById(data, serviceId)!; draft = { serviceId, staffId, date: day, start: time, minutes: service.minutes, resourceIds: service.resourceIds, client: '' }; render() })
-  app.querySelector<HTMLButtonElement>('[data-new-booking]')?.addEventListener('click', () => { const service = data.services[0]; draft = { serviceId: service.id, staffId: service.staffIds[0], date: day, start: time, minutes: service.minutes, resourceIds: service.resourceIds, client: '' }; render() })
-  app.querySelectorAll<HTMLButtonElement>('[data-cancel-draft]').forEach((el) => el.onclick = () => { draft = null; render() })
+  app.querySelectorAll<HTMLButtonElement>('[data-propose]').forEach((el) => el.onclick = () => { const [serviceId, staffId] = el.dataset.propose!.split('|'); const service = serviceById(data, serviceId)!; openDraft({ serviceId, staffId, date: day, start: time, minutes: service.minutes, resourceIds: service.resourceIds, client: '' }, { kind: 'proposal', value: el.dataset.propose! }) })
+  app.querySelector<HTMLButtonElement>('[data-new-booking]')?.addEventListener('click', () => { const service = data.services[0]; openDraft({ serviceId: service.id, staffId: service.staffIds[0], date: day, start: time, minutes: service.minutes, resourceIds: service.resourceIds, client: '' }, { kind: 'new' }) })
+  wireBookingSheet()
   app.querySelector<HTMLInputElement>('#board-date')?.addEventListener('change', (e) => { day = (e.target as HTMLInputElement).value; render() })
   app.querySelector<HTMLInputElement>('#board-time')?.addEventListener('change', (e) => { time = (e.target as HTMLInputElement).value; render() })
-  app.querySelector<HTMLFormElement>('#booking-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); const service = serviceById(data, String(f.get('serviceId')))!; const next: Booking = { id: id(), date: String(f.get('date')), start: String(f.get('start')), minutes: Number(f.get('minutes')), staffId: String(f.get('staffId')), serviceId: service.id, resourceIds: service.resourceIds, client: String(f.get('client')).trim(), createdAt: Date.now() }; if (conflictsFor(data, next).length) { message = 'That job changed and is no longer clear.'; render(); return } data.bookings.push(next); draft = null; await persist('Clear job added') })
   app.querySelectorAll<HTMLButtonElement>('[data-delete-booking]').forEach((el) => el.onclick = async () => { const b = data.bookings.find((x) => x.id === el.dataset.deleteBooking)!; if (confirm(`Remove ${serviceName(b.serviceId)} at ${b.start}?`)) { data.bookings = data.bookings.filter((x) => x.id !== b.id); await persist('Job removed') } })
   app.querySelector<HTMLButtonElement>('[data-reset-demo]')?.addEventListener('click', async () => { data = seededData(day); await save(data, 'demo'); page = 'board'; message = 'Demo reset to its sample plan'; render() })
   app.querySelector<HTMLButtonElement>('[data-start-real]')?.addEventListener('click', () => { void routeTo('/') })
@@ -137,7 +261,22 @@ function wire() {
   app.querySelector<HTMLFormElement>('#resource-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); data.resources.push({ id: id(), name: String(f.get('name')).trim(), capacity: Number(f.get('capacity')), color: colours[data.resources.length % colours.length] }); await persist('Resource added') })
   app.querySelector<HTMLFormElement>('#service-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = e.currentTarget as HTMLFormElement; const fd = new FormData(f); const staffIds = inputValues(f, 'staffIds'); if (!staffIds.length) { message = 'Choose at least one team member.'; render(); return } data.services.push({ id: id(), name: String(fd.get('name')).trim(), minutes: Number(fd.get('minutes')), staffIds, resourceIds: inputValues(f, 'resourceIds'), color: colours[data.services.length % colours.length] }); await persist('Service added') })
   app.querySelector<HTMLFormElement>('#rule-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); if (f.get('serviceA') === f.get('serviceB')) { message = 'Choose two different services for a pair rule.'; render(); return } data.rules.push({ id: id(), serviceA: String(f.get('serviceA')), serviceB: String(f.get('serviceB')), allowed: false, note: String(f.get('note')).trim() }); await persist('Pair rule added') })
-  app.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((el) => el.onclick = async () => { const [type, removeId] = el.dataset.remove!.split('|'); if (type === 'staff') { data.staff = data.staff.filter((x) => x.id !== removeId); data.services.forEach((x) => x.staffIds = x.staffIds.filter((v) => v !== removeId)); data.bookings = data.bookings.filter((x) => x.staffId !== removeId) } if (type === 'resource') { data.resources = data.resources.filter((x) => x.id !== removeId); data.services.forEach((x) => x.resourceIds = x.resourceIds.filter((v) => v !== removeId)); data.bookings.forEach((x) => x.resourceIds = x.resourceIds.filter((v) => v !== removeId)) } if (type === 'service') { data.services = data.services.filter((x) => x.id !== removeId); data.rules = data.rules.filter((x) => x.serviceA !== removeId && x.serviceB !== removeId); data.bookings = data.bookings.filter((x) => x.serviceId !== removeId) } if (type === 'rule') data.rules = data.rules.filter((x) => x.id !== removeId); await persist('Item removed; dependent plan entries were updated') })
+  app.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((el) => el.onclick = async () => {
+    const [type, removeId] = el.dataset.remove!.split('|')
+    if (!confirm(removalWarning(type, removeId))) return
+    if (type === 'staff') {
+      const removedServiceIds = new Set(data.services.filter((service) => service.staffIds.includes(removeId) && service.staffIds.length === 1).map((service) => service.id))
+      data.staff = data.staff.filter((item) => item.id !== removeId)
+      data.services = data.services.filter((service) => !removedServiceIds.has(service.id))
+      data.services.forEach((service) => service.staffIds = service.staffIds.filter((staffId) => staffId !== removeId))
+      data.bookings = data.bookings.filter((booking) => booking.staffId !== removeId && !removedServiceIds.has(booking.serviceId))
+      data.rules = data.rules.filter((rule) => !removedServiceIds.has(rule.serviceA) && !removedServiceIds.has(rule.serviceB))
+    }
+    if (type === 'resource') { data.resources = data.resources.filter((x) => x.id !== removeId); data.services.forEach((x) => x.resourceIds = x.resourceIds.filter((v) => v !== removeId)); data.bookings.forEach((x) => x.resourceIds = x.resourceIds.filter((v) => v !== removeId)) }
+    if (type === 'service') { data.services = data.services.filter((x) => x.id !== removeId); data.rules = data.rules.filter((x) => x.serviceA !== removeId && x.serviceB !== removeId); data.bookings = data.bookings.filter((x) => x.serviceId !== removeId) }
+    if (type === 'rule') data.rules = data.rules.filter((x) => x.id !== removeId)
+    await persist('Item removed after confirmation; dependent plan entries were updated')
+  })
   app.querySelector<HTMLButtonElement>('[data-export]')?.addEventListener('click', exportCsv)
   app.querySelector<HTMLInputElement>('#import-file')?.addEventListener('change', importCsv)
   app.querySelector<HTMLButtonElement>('[data-clear]')?.addEventListener('click', async () => { if (confirm('Start a blank notebook? Export first if you may need this plan.')) { data = emptyData(); await persist('Blank notebook ready') } })
@@ -214,6 +353,11 @@ function checkedCsvData(rows: Record<string, string>[]): Data {
   if (next.services.some((item) => item.staffIds.some((value) => !staffIds.has(value)) || item.resourceIds.some((value) => !resourceIds.has(value)))) throw new Error('A service refers to a person or resource that is not in this CSV. Nothing was imported.')
   if (next.rules.some((item) => !serviceIds.has(item.serviceA) || !serviceIds.has(item.serviceB))) throw new Error('A service-pair rule refers to a service that is not in this CSV. Nothing was imported.')
   if (next.bookings.some((item) => !staffIds.has(item.staffId) || !serviceIds.has(item.serviceId) || item.resourceIds.some((value) => !resourceIds.has(value)))) throw new Error('A job refers to a person, service, or resource that is not in this CSV. Nothing was imported.')
+  if (next.bookings.some((item) => !serviceById(next, item.serviceId)?.staffIds.includes(item.staffId))) throw new Error('A job assigns a team member who does not provide its service. Nothing was imported.')
+  if (next.bookings.some((item) => {
+    const required = serviceById(next, item.serviceId)?.resourceIds ?? []
+    return item.resourceIds.length !== required.length || item.resourceIds.some((value) => !required.includes(value))
+  })) throw new Error('A job’s shared resources do not match its service. Nothing was imported.')
   return next
 }
 

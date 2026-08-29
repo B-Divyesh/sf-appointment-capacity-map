@@ -39,7 +39,7 @@
     "claim": "Capacity Map Plus groups conflicts across fourteen days.",
     "where": "home Plus section, Plus screen, README",
     "test": "npm run test:claims -- --grep @claim:two-week-review",
-    "sandbox": "fresh /demo sample where Plus is previewable without payment; add conflicts on offsets 13 and 14; assert day 13 is included and day 14 is excluded"
+    "sandbox": "fresh /demo sample where Plus is previewable without payment; add a midnight-spanning conflict and conflicts on offsets 13 and 14; assert midnight and day 13 are included while day 14 is excluded"
   },
   {
     "id": "daily-license-check",
@@ -74,7 +74,7 @@
     "claim": "Capacity Map checks whether service jobs can overlap before saving a booking.",
     "where": "home headline and how-it-works, README",
     "test": "npm run test:claims -- --grep @claim:availability-check",
-    "sandbox": "fresh demo; add one clear proposed job; open one staff-capacity conflict; assert its reason and disabled save action"
+    "sandbox": "fresh demo; change a proposal to a service with one eligible person and assert the person updates; add a 23:30 job; assert 00:00 next day is blocked with its reason and disabled save action"
   },
   {
     "id": "license-request-data",

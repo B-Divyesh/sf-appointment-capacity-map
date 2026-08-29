@@ -130,9 +130,13 @@ test('@claim:two-week-review includes day thirteen and excludes day fourteen', a
     const start = new Date().toISOString().slice(0, 10); const day13 = add(start, 13); const day14 = add(start, 14)
     data.services.push(
       { id: 'day-thirteen', name: 'Day thirteen boundary', minutes: 30, staffIds: ['ava'], resourceIds: [], color: '#176b8a' },
-      { id: 'day-fourteen', name: 'Day fourteen boundary', minutes: 30, staffIds: ['ava'], resourceIds: [], color: '#176b8a' }
+      { id: 'day-fourteen', name: 'Day fourteen boundary', minutes: 30, staffIds: ['ava'], resourceIds: [], color: '#176b8a' },
+      { id: 'overnight', name: 'Overnight setup', minutes: 60, staffIds: ['ava'], resourceIds: [], color: '#176b8a' },
+      { id: 'early', name: 'Early handoff', minutes: 30, staffIds: ['ava'], resourceIds: [], color: '#176b8a' }
     )
     data.bookings.push(
+      { id: 'overnight-a', date: start, start: '23:30', minutes: 60, staffId: 'ava', serviceId: 'overnight', resourceIds: [], client: '', createdAt: 11 },
+      { id: 'overnight-b', date: add(start, 1), start: '00:00', minutes: 30, staffId: 'ava', serviceId: 'early', resourceIds: [], client: '', createdAt: 12 },
       { id: 'day13-a', date: day13, start: '08:00', minutes: 30, staffId: 'ava', serviceId: 'day-thirteen', resourceIds: [], client: '', createdAt: 13 },
       { id: 'day13-b', date: day13, start: '08:00', minutes: 30, staffId: 'ava', serviceId: 'consult', resourceIds: [], client: '', createdAt: 14 },
       { id: 'day14-a', date: day14, start: '08:00', minutes: 30, staffId: 'ava', serviceId: 'day-fourteen', resourceIds: [], client: '', createdAt: 15 },
@@ -144,8 +148,10 @@ test('@claim:two-week-review includes day thirteen and excludes day fourteen', a
   })
   await page.reload()
   await page.getByRole('link', { name: 'Two-week review' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: '4 capacity checks need attention' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '6 capacity checks need attention' })).toBeVisible()
   await expect(page.getByText('Treatment and Mobile visit do not overlap')).toBeVisible()
+  await expect(page.getByText('Overnight setup')).toBeVisible()
+  await expect(page.getByText('Early handoff')).toBeVisible()
   await expect(page.getByText('Day thirteen boundary')).toBeVisible()
   await expect(page.getByText('Day fourteen boundary')).toHaveCount(0)
 })
@@ -219,17 +225,32 @@ test('@claim:no-calendar-booking-payment has no calendar, public booking, or dir
 
 test('@claim:availability-check adds a clear job and prevents a conflicting job before saving', async ({ page }) => {
   await page.goto('/demo')
-  await page.getByRole('button', { name: /Consultation with Leo: bookable/ }).click()
+  await page.getByRole('button', { name: /Consultation with Ava: bookable/ }).click()
   await expect(page.getByText('Clear to book')).toBeVisible()
+  await page.locator('#booking-form select[name="serviceId"]').selectOption('visit')
+  await expect(page.locator('#booking-form select[name="staffId"]')).toHaveValue('leo')
+  await expect(page.locator('#booking-form select[name="staffId"] option')).toHaveText(['Leo'])
   await page.getByRole('button', { name: 'Add clear job' }).click()
   await expect(page.getByText('Clear job added')).toBeVisible()
   await expect(page.locator('.booking')).toHaveCount(4)
   const savedCount = await page.locator('.booking').count()
-  await page.locator('#board-time').fill('13:15')
+
+  await page.locator('#board-time').fill('23:30')
+  await page.getByRole('button', { name: /Consultation with Ava: bookable/ }).click()
+  await page.locator('#booking-form input[name="minutes"]').fill('60')
+  await page.getByRole('button', { name: 'Add clear job' }).click()
+  const nextDay = await page.locator('#board-date').inputValue().then((value) => {
+    const date = new Date(`${value}T12:00:00Z`)
+    date.setUTCDate(date.getUTCDate() + 1)
+    return date.toISOString().slice(0, 10)
+  })
+  await page.locator('#board-date').fill(nextDay)
+  await page.locator('#board-time').fill('00:00')
   await page.getByRole('button', { name: /Consultation with Ava: blocked, Ava is at capacity/ }).click()
   await expect(page.getByRole('alert')).toContainText('Ava is at capacity')
   await expect(page.getByRole('button', { name: 'Add clear job' })).toBeDisabled()
-  expect(await page.locator('.booking').count()).toBe(savedCount)
+  expect(await page.locator('.booking').count()).toBe(0)
+  expect(savedCount).toBe(4)
 })
 
 test('@claim:license-request-data sends only the pasted token in a bodyless Sociobot request', async ({ page }) => {

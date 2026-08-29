@@ -76,6 +76,67 @@ test('adds and retains a clear job while rejecting malformed CSV without data lo
   await expect(page.getByText('Ava', { exact: true })).toBeVisible()
 })
 
+test('rejects imported jobs assigned to a person who does not provide the service', async ({ page }) => {
+  await page.goto('/demo/setup')
+  const invalidAssignment = [
+    'type,id,name,color,capacity,parallelSlots,minutes,staffIds,resourceIds,serviceA,serviceB,allowed,note,date,start,staffId,serviceId,client,createdAt',
+    '"staff","ava","Ava","#176b8a","","1"',
+    '"staff","leo","Leo","#a75a18","","1"',
+    '"resource","van","Service van","#377353","1"',
+    '"service","visit","Mobile visit","#377353","","","60","leo","van"',
+    '"booking","wrong-person","","","","","60","","van","","","","","2026-08-28","09:00","ava","visit","","1"'
+  ].join('\n')
+  await page.locator('#import-file').setInputFiles({ name: 'invalid-assignment.csv', mimeType: 'text/csv', buffer: Buffer.from(invalidAssignment) })
+  await expect(page.getByRole('alert')).toHaveText('A job assigns a team member who does not provide its service. Nothing was imported.')
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+})
+
+test('updates proposal conflicts without losing values and restores keyboard focus', async ({ page }) => {
+  await page.goto('/demo')
+  const trigger = page.getByRole('button', { name: /Consultation with Ava: bookable/ })
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Check before you book' })).toBeFocused()
+  const sheetA11y = await new AxeBuilder({ page }).include('.sheet').analyze()
+  expect(sheetA11y.violations.filter((item) => ['serious', 'critical'].includes(item.impact ?? ''))).toEqual([])
+
+  const start = page.locator('#booking-form input[name="start"]')
+  await start.fill('10:30')
+  await expect(page.getByRole('alert')).toContainText('Ava is at capacity')
+  await expect(start).toHaveValue('10:30')
+  await expect(page.getByRole('button', { name: 'Add clear job' })).toBeDisabled()
+
+  await page.getByRole('button', { name: 'Close proposed job' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(trigger).toBeFocused()
+})
+
+test('confirms setup cascades and never leaves a service without a team member', async ({ page }) => {
+  await page.goto('/demo/setup')
+  const avaRow = page.locator('.plain-list li').filter({ hasText: 'Ava up to 1 at once' })
+  const removeAva = avaRow.getByRole('button', { name: 'Remove' })
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toContain('2 jobs')
+    expect(dialog.message()).toContain('1 service with no remaining team member')
+    await dialog.dismiss()
+  })
+  await removeAva.click()
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toContain('This cannot be undone.')
+    await dialog.accept()
+  })
+  await page.locator('.plain-list li').filter({ hasText: 'Ava up to 1 at once' }).getByRole('button', { name: 'Remove' }).click()
+  await expect(page.getByText('Ava', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Treatment', { exact: true })).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByText('Ava', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.plain-list li').filter({ hasText: 'Leo up to 1 at once' })).toBeVisible()
+})
+
 test('rejects an unknown CSV row type without replacing the notebook', async ({ page }) => {
   await page.goto('/demo')
   await page.getByRole('link', { name: 'Notebook setup' }).click()
@@ -111,6 +172,9 @@ test('fits planner navigation at 390px without horizontal clipping', async ({ pa
   const dimensions = await page.locator('.tabs').evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }))
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client)
   await expect(page.getByRole('link', { name: /Two-week review/ })).toBeInViewport()
+  await page.getByRole('button', { name: /Consultation with Ava: bookable/ }).click()
+  const pageWidth = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
+  expect(pageWidth.scroll).toBeLessThanOrEqual(pageWidth.client)
   await page.screenshot({ path: '.factory/evidence/mobile-390.png', fullPage: true })
 })
 
@@ -119,6 +183,7 @@ test('respects reduced motion and keeps mobile controls at least 44px high', asy
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/demo')
   expect(await page.locator('.matrix-cell').first().evaluate((element) => parseFloat(getComputedStyle(element).animationDuration))).toBeLessThanOrEqual(0.001)
+  await page.getByRole('button', { name: /Consultation with Ava: bookable/ }).click()
   const shortControls = await page.locator('button:visible, a:visible, input:visible, select:visible').evaluateAll((elements) => elements
     .map((element) => ({ name: element.textContent?.trim() || element.getAttribute('aria-label') || element.tagName, height: element.getBoundingClientRect().height }))
     .filter((control) => control.height < 44))
