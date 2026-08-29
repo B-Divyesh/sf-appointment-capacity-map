@@ -1,52 +1,76 @@
-# Review handoff — appointment-capacity-map-review-2
+# Repair handoff — appointment-capacity-map-polish-2
 
-## Outcome: FAIL
+## Outcome
 
-This was an independent, non-code adversarial review of
-`https://appointment-capacity-map.sociobot.in/`. The full report is
-`.factory/review-2.md`.
+PASS. All five findings in `.factory/review-2.md` are fixed, all six findings
+from `.factory/review-1.md` remain closed, and the verified build is deployed at
+`https://appointment-capacity-map.sociobot.in/`.
 
-One medium and four minor findings remain:
+- Repair implementation: `7c5575baddc41a6fbb197bf7ae21817d1dd2e293`
+- Azure deployment: `de0c6a1a-4e46-459b-8753-90209d509387`
+- Live build version: `0c87ceff722e`
+- Detailed finding map: `.factory/polish-2.md`
 
-1. The sitemap omits the public `/demo/setup` and `/demo/review` routes.
-2. The landing/README promise that users can record people, services, shared
-   resources, and rules has no matching claim entry and test.
-3. The README’s exact demo counts are not asserted by its claim test.
-4. “Local-first planning notebook” is unexplained footer jargon.
-5. “Original generated illustration” is an unhelpful, untested footer slogan.
+## What changed
 
-## What was verified
+- Completed the sitemap with `/demo/setup` and `/demo/review`, backed by a
+  route-completeness contract test.
+- Added the `capacity-setup` claim and a real browser test that creates,
+  persists, reloads, and uses a person, resource, service, and pair rule.
+- Strengthened `demo-isolation` to assert the advertised two people, three
+  services, two resources, and three jobs before and after reset.
+- Replaced footer jargon with “Plans stay in this browser.” and removed the
+  decorative illustration slogan from the app and 404.
+- Updated the catalog sentence and the complete plain-language copy audit.
+- Preserved the handwritten notebook identity, static PWA architecture,
+  isolated demo storage, metadata, focus routing, offline worker, and legal
+  pages.
 
-- Cold 390 px and desktop first reads explain the job, audience, and sample
-  action before scrolling. The live demo is one click, visibly seeded,
-  isolated, resettable, and disposable.
-- All 12 commands in `.factory/claims.json` passed independently from fresh
-  clone `/tmp/capacity-review-clean-suE8a5`.
-- Live Playwright checks confirmed same-origin demo requests, offline reload,
-  route metadata, history/focus behavior, responsive layout, links, headers,
-  and the real designed 404. Axe found no serious or critical violations across
-  all public routes.
-- In the fresh clone, `npm test` (9/9), typecheck, lint, and `npm run build`
-  passed. The build generated `dist/`.
-- Every prior review/polish/verification finding was read and rechecked; none
-  regressed. Details are in the regression table in the review.
+## Verification
 
-## How to verify
+From clean clone `/tmp/capacity-polish2-clean-D5lOZB/repo` at the repair commit:
+
+- `npm ci`: 140 packages, zero vulnerabilities.
+- Every exact command in `.factory/claims.json`: 13/13 passed independently.
+- `npm test`: 10/10 passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run test:ui`: 36/36 passed.
+- `npm run build`: passed; `dist/index.html` exists.
+
+After deployment:
+
+- Factory URL smoke: 200, 883 ms, zero errors, correct title/lang/h1/main/alt
+  text/control labels.
+- Live production-safe Playwright suite: 35/35 passed, including all claims,
+  offline, privacy, mobile, routing, focus, metadata, 404, and axe coverage.
+- `/`, all seven named subroutes: HTTP 200; unknown route: HTTP 404.
+- Lighthouse mobile `/demo`: 100 Performance, 100 Accessibility, 100 Best
+  Practices, 100 SEO; LCP 1.0 s, TBT 0 ms, CLS 0.
+- Bundles: JS 36.55 kB raw / 12.05 kB gzip; CSS 12.53 kB raw / 3.53 kB gzip;
+  hero image 30.64 kB.
+- Cold visual evidence:
+  `.factory/evidence/polish-2-demo-390.png`,
+  `.factory/evidence/polish-2-setup-1440.png`, and
+  `.factory/evidence/polish-2-404-390.png`.
+
+## Run and verify
 
 ```sh
 npm ci
 npm test
 npm run typecheck
 npm run lint
-npm run build
-# Run each exact command in .factory/claims.json separately.
+npm run test:claims
 npm run test:ui
+npm run build
 ```
 
-Open `/demo` or choose **Try it with sample data**. Use **Reset demo** to
-reseed its separate browser storage, or **Start for real** to discard it.
+Run each `test` value in `.factory/claims.json` separately for the strict claim
+gate. Open `/?demo=1` for a fresh sample; use **Reset demo** to restore it and
+**Start for real** to delete the demo notebook.
 
-## Next steps
+## Known gaps and next steps
 
-Implement the five concrete fixes in `.factory/review-2.md`, then perform a
-fresh review. No product code was changed in this work order.
+None within the product brief or cumulative adversarial reviews. No TODOs or
+deferred minor findings remain.
