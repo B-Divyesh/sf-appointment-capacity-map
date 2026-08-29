@@ -90,7 +90,7 @@ test('@claim:privacy-local-only keeps the demo planning flow on the product orig
   await page.getByRole('button', { name: 'Add clear job' }).click()
   await page.getByRole('link', { name: 'Notebook setup' }).click()
   await expect(page.getByRole('button', { name: 'Export CSV' })).toBeVisible()
-  expect([...origins]).toEqual(['http://127.0.0.1:4174'])
+  expect([...origins]).toEqual([new URL(page.url()).origin])
 })
 
 test('@claim:conflict-explanation names person, resource, and service-pair blockers', async ({ page }) => {
@@ -121,6 +121,7 @@ test('@claim:conflict-explanation names person, resource, and service-pair block
 
 test('@claim:two-week-review includes day thirteen and excludes day fourteen', async ({ page }) => {
   await page.goto('/demo')
+  await expect(page.getByText('New client call')).toBeVisible()
   await page.evaluate(async () => {
     const add = (date: string, days: number) => { const value = new Date(`${date}T12:00:00`); value.setDate(value.getDate() + days); return value.toISOString().slice(0, 10) }
     const database = await new Promise<IDBDatabase>((resolve, reject) => { const opening = indexedDB.open('capacity-map', 1); opening.onsuccess = () => resolve(opening.result); opening.onerror = () => reject(opening.error) })
@@ -177,8 +178,8 @@ test('@claim:plus-price shows the $29 one-time purchase and registered checkout'
 })
 
 test('@claim:core-free creates a plan and exports it without a license or checkout', async ({ page }) => {
-  const externalRequests: string[] = []
-  page.on('request', (request) => { if (new URL(request.url()).origin !== 'http://127.0.0.1:4174') externalRequests.push(request.url()) })
+  const requests: string[] = []
+  page.on('request', (request) => requests.push(request.url()))
   await page.goto('/setup')
   const plan = [
     'type,id,name,color,capacity,parallelSlots,minutes,staffIds,resourceIds,serviceA,serviceB,allowed,note,date,start,staffId,serviceId,client,createdAt',
@@ -197,7 +198,8 @@ test('@claim:core-free creates a plan and exports it without a license or checko
   const download = await downloadPromise
   expect((await download.suggestedFilename())).toMatch(/^capacity-map-\d{4}-\d{2}-\d{2}\.csv$/)
   expect(await page.evaluate(() => localStorage.getItem('sb_license:appointment-capacity-map'))).toBeNull()
-  expect(externalRequests).toEqual([])
+  const productOrigin = new URL(page.url()).origin
+  expect(requests.every((url) => new URL(url).origin === productOrigin)).toBe(true)
 })
 
 test('@claim:no-calendar-booking-payment has no calendar, public booking, or direct-payment integration', async ({ page }) => {
@@ -208,7 +210,7 @@ test('@claim:no-calendar-booking-payment has no calendar, public booking, or dir
   await page.getByRole('button', { name: 'Add clear job' }).click()
   await page.getByRole('link', { name: 'Notebook setup' }).click()
   await expect(page.locator('a[href*="calendar"], a[href*="/book"], form[action^="http"]')).toHaveCount(0)
-  expect(requests.every((url) => new URL(url).origin === 'http://127.0.0.1:4174')).toBe(true)
+  expect(requests.every((url) => new URL(url).origin === new URL(page.url()).origin)).toBe(true)
   await page.goto('/review')
   const checkout = page.getByRole('link', { name: 'Buy Capacity Map Plus' })
   await expect(checkout).toHaveAttribute('href', 'https://api.sociobot.in/api/v1/products/appointment-capacity-map/checkout')
