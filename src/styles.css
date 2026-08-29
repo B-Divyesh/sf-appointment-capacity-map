@@ -95,7 +95,8 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+fieldset:focus-visible {
   outline: 3px solid var(--ochre);
   outline-offset: 3px;
 }
@@ -686,6 +687,10 @@ select {
 }
 .error-text {
   color: var(--red);
+}
+.form-error {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
 }
 .unlock,
 .review,

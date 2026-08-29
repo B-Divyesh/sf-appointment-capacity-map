@@ -2,7 +2,7 @@ import './styles.css'
 import art from './assets/capacity-notebook.webp'
 import { clear, load, save, type StorageMode } from './db'
 import { availabilityFor, conflictsFor, resourceById, seededData, serviceById, staffById } from './rules'
-import { emptyData, id, today, type Booking, type Data, type Id } from './types'
+import { addCalendarDays, emptyData, id, today, type Booking, type Data, type Id } from './types'
 
 type Page = 'board' | 'setup' | 'review' | 'privacy' | 'terms'
 type AppRoute = '/' | '/setup' | '/review' | '/demo' | '/demo/setup' | '/demo/review' | '/privacy' | '/terms'
@@ -23,7 +23,7 @@ let draftReturnFocus: DraftReturnFocus | null = null
 
 const esc = (value: string | number) => String(value).replace(/[&<>'"]/g, (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[s]!))
 const csv = (v: string | number | undefined) => `"${String(v ?? '').replaceAll('"', '""')}"`
-const dateAdd = (d: string, n: number) => { const out = new Date(`${d}T12:00:00`); out.setDate(out.getDate() + n); return out.toISOString().slice(0, 10) }
+const dateAdd = addCalendarDays
 const prettyDate = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 
 const storageMode = (): StorageMode => demoMode ? 'demo' : 'real'
@@ -66,14 +66,20 @@ function bookingDecision(issues: ReturnType<typeof conflictsFor>) {
 }
 
 function setupView() {
-  return `<section class="setup-intro"><p class="eyebrow">Notebook setup</p><h1>Set up your capacity rules</h1><p>Names and planning details stay in this ${demoMode ? 'demo' : 'browser'}. There are no calendars to connect and no employee tracking fields.</p></section><div class="setup-grid"><section class="setup-section"><h2>1. Team members</h2><form id="staff-form" class="inline-form"><label>Name <input name="name" required maxlength="40"></label><label>Parallel jobs <input name="parallelSlots" type="number" min="1" max="5" value="1" required></label><button class="primary">Add person</button></form>${data.staff.length ? `<ul class="plain-list">${data.staff.map((x) => `<li><i class="${markClass(x.color)}"></i>${esc(x.name)} <span>up to ${x.parallelSlots} at once</span><button class="text-button danger-text" data-remove="staff|${x.id}">Remove</button></li>`).join('')}</ul>` : '<p class="quiet">No team members yet.</p>'}</section><section class="setup-section"><h2>2. Shared resources</h2><form id="resource-form" class="inline-form"><label>Name <input name="name" required maxlength="40" placeholder="e.g. Treatment chair"></label><label>Units <input name="capacity" type="number" min="1" max="20" value="1" required></label><button class="primary">Add resource</button></form>${data.resources.length ? `<ul class="plain-list">${data.resources.map((x) => `<li><i class="${markClass(x.color)}"></i>${esc(x.name)} <span>${x.capacity} available</span><button class="text-button danger-text" data-remove="resource|${x.id}">Remove</button></li>`).join('')}</ul>` : '<p class="quiet">No shared things needed yet.</p>'}</section><section class="setup-section wide"><h2>3. Services</h2><form id="service-form" class="service-form"><label>Name <input name="name" required maxlength="40" placeholder="e.g. Initial consult"></label><label>Minutes <input name="minutes" type="number" min="5" step="5" value="30" required></label><fieldset><legend>Who can provide it?</legend>${data.staff.length ? data.staff.map((x) => `<label class="check"><input type="checkbox" name="staffIds" value="${x.id}"> ${esc(x.name)}</label>`).join('') : '<span class="quiet">Add people first.</span>'}</fieldset><fieldset><legend>What does it use?</legend>${data.resources.length ? data.resources.map((x) => `<label class="check"><input type="checkbox" name="resourceIds" value="${x.id}"> ${esc(x.name)}</label>`).join('') : '<span class="quiet">None — or add a shared resource.</span>'}</fieldset><button class="primary" ${data.staff.length ? '' : 'disabled'}>Add service</button></form>${data.services.length ? `<ul class="plain-list">${data.services.map((x) => `<li><i class="${markClass(x.color)}"></i><span><b>${esc(x.name)}</b> · ${x.minutes} min <small>${esc(x.staffIds.map(staffName).join(', '))}; ${esc(resourceNames(x.resourceIds))}</small></span><button class="text-button danger-text" data-remove="service|${x.id}">Remove</button></li>`).join('')}</ul>` : '<p class="quiet">No services yet.</p>'}</section><section class="setup-section wide"><h2>4. Service-pair rules</h2><p class="quiet">Use a no-overlap rule when two job types cannot run together even with different people and equipment.</p><form id="rule-form" class="rule-form"><label>First service <select name="serviceA">${data.services.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Cannot overlap with <select name="serviceB">${data.services.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Why? <input name="note" maxlength="120" placeholder="e.g. requires a shared hand-off"></label><button class="primary" ${data.services.length < 2 ? 'disabled' : ''}>Add rule</button></form>${data.rules.length ? `<ul class="plain-list">${data.rules.map((x) => `<li><span><b>${esc(serviceName(x.serviceA))}</b> × <b>${esc(serviceName(x.serviceB))}</b><small>${esc(x.note || 'No overlap')}</small></span><button class="text-button danger-text" data-remove="rule|${x.id}">Remove</button></li>`).join('')}</ul>` : '<p class="quiet">No extra pair rules.</p>'}</section></div><section class="data-tools"><h2>Keep a copy</h2><p>Export a portable CSV at any time. Importing replaces this notebook after its rows are checked.</p><div class="button-row"><button data-export>Export CSV</button><label class="file-button">Import CSV <input id="import-file" type="file" accept=".csv,text/csv"></label><button class="text-button danger-text" data-clear>Start a blank notebook</button></div>${importError ? `<p class="error-text" role="alert">${esc(importError)}</p>` : ''}</section>`
+  return `<section class="setup-intro"><p class="eyebrow">Notebook setup</p><h1>Set up your capacity rules</h1><p>Names and planning details stay in this ${demoMode ? "demo" : "browser"}. There are no calendars to connect and no employee tracking fields.</p></section><div class="setup-grid"><section class="setup-section"><h2>1. Team members</h2><form id="staff-form" class="inline-form"><label>Name <input name="name" required maxlength="40"></label><label>Parallel jobs <input name="parallelSlots" type="number" min="1" max="5" value="1" required></label><button class="primary">Add person</button></form>${data.staff.length ? `<ul class="plain-list">${data.staff.map((x) => `<li><i class="${markClass(x.color)}"></i>${esc(x.name)} <span>up to ${x.parallelSlots} at once</span><button class="text-button danger-text" data-remove="staff|${x.id}">Remove</button></li>`).join("")}</ul>` : '<p class="quiet">No team members yet.</p>'}</section><section class="setup-section"><h2>2. Shared resources</h2><form id="resource-form" class="inline-form"><label>Name <input name="name" required maxlength="40" placeholder="e.g. Treatment chair"></label><label>Units <input name="capacity" type="number" min="1" max="20" value="1" required></label><button class="primary">Add resource</button></form>${data.resources.length ? `<ul class="plain-list">${data.resources.map((x) => `<li><i class="${markClass(x.color)}"></i>${esc(x.name)} <span>${x.capacity} available</span><button class="text-button danger-text" data-remove="resource|${x.id}">Remove</button></li>`).join("")}</ul>` : '<p class="quiet">No shared things needed yet.</p>'}</section><section class="setup-section wide"><h2>3. Services</h2><form id="service-form" class="service-form"><label>Name <input name="name" required maxlength="40" placeholder="e.g. Initial consult"></label><label>Minutes <input name="minutes" type="number" min="5" step="5" value="30" required></label><fieldset id="service-staff-group" tabindex="-1"><legend>Who can provide it?</legend>${data.staff.length ? data.staff.map((x) => `<label class="check"><input type="checkbox" name="staffIds" value="${x.id}"> ${esc(x.name)}</label>`).join("") : '<span class="quiet">Add people first.</span>'}</fieldset><fieldset><legend>What does it use?</legend>${data.resources.length ? data.resources.map((x) => `<label class="check"><input type="checkbox" name="resourceIds" value="${x.id}"> ${esc(x.name)}</label>`).join("") : '<span class="quiet">None — or add a shared resource.</span>'}</fieldset><button class="primary" ${data.staff.length ? "" : "disabled"}>Add service</button></form>${data.services.length ? `<ul class="plain-list">${data.services.map((x) => `<li><i class="${markClass(x.color)}"></i><span><b>${esc(x.name)}</b> · ${x.minutes} min <small>${esc(x.staffIds.map(staffName).join(", "))}; ${esc(resourceNames(x.resourceIds))}</small></span><button class="text-button danger-text" data-remove="service|${x.id}">Remove</button></li>`).join("")}</ul>` : '<p class="quiet">No services yet.</p>'}</section><section class="setup-section wide"><h2>4. Service-pair rules</h2><p class="quiet">Use a no-overlap rule when two job types cannot run together even with different people and equipment.</p><form id="rule-form" class="rule-form"><label>First service <select name="serviceA">${data.services.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label><label>Cannot overlap with <select name="serviceB">${data.services.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label><label>Why? <input name="note" maxlength="120" placeholder="e.g. requires a shared hand-off"></label><button class="primary" ${data.services.length < 2 ? "disabled" : ""}>Add rule</button></form>${data.rules.length ? `<ul class="plain-list">${data.rules.map((x) => `<li><span><b>${esc(serviceName(x.serviceA))}</b> × <b>${esc(serviceName(x.serviceB))}</b><small>${esc(x.note || "No overlap")}</small></span><button class="text-button danger-text" data-remove="rule|${x.id}">Remove</button></li>`).join("")}</ul>` : '<p class="quiet">No extra pair rules.</p>'}</section></div><section class="data-tools"><h2>Keep a copy</h2><p>Export a portable CSV at any time. Importing replaces this notebook after its rows are checked.</p><div class="button-row"><button data-export>Export CSV</button><button type="button" data-import>Import CSV</button><input id="import-file" class="sr-only" tabindex="-1" type="file" accept=".csv,text/csv" aria-label="Choose a Capacity Map CSV file"><button class="text-button danger-text" data-clear>Start a blank notebook</button></div>${importError ? `<p class="error-text" role="alert">${esc(importError)}</p>` : ""}</section>`;
 }
 
 function reviewView() {
-  if (!licensed) return `<section class="unlock"><p class="eyebrow">Capacity Map Plus</p><h1>Review two weeks of capacity conflicts</h1><p>Plus groups conflicting jobs by their staff, resource, or service-pair reason. Core planning and CSV export stay free.</p><p class="price"><b>$29</b> one-time purchase</p><div class="button-row"><a class="primary button-link" href="https://api.sociobot.in/api/v1/products/${PRODUCT}/checkout">Buy Capacity Map Plus</a><button data-restore>Paste a license</button></div><p class="quiet">Sociobot / Dodo is merchant of record. Refunds revoke the license. <a href="/terms" data-route="/terms">Read the terms</a>.</p></section>`
-  const issues: { date: string; booking: Booking; reason: string }[] = []
-  for (let offset = 0; offset < 14; offset++) for (const booking of data.bookings.filter((b) => b.date === dateAdd(day, offset))) for (const issue of conflictsFor(data, booking)) issues.push({ date: booking.date, booking, reason: issue.label })
-  return `<section class="review"><p class="eyebrow">Two-week review${demoMode ? ' · sample preview' : ''}</p><h1>${issues.length ? `${issues.length} capacity checks need attention` : 'No disallowed overlaps found'}</h1><p>${prettyDate(day)} through ${prettyDate(dateAdd(day, 13))}. This uses the same explainable rules as the live board.</p>${issues.length ? `<ol class="review-list">${issues.map((x) => `<li><b>${esc(prettyDate(x.date))} · ${esc(x.booking.start)}</b><span>${esc(serviceName(x.booking.serviceId))} with ${esc(staffName(x.booking.staffId))}</span><em>${esc(x.reason)}</em></li>`).join('')}</ol>` : '<div class="explanation good"><strong>Clear plan</strong><span>Add more jobs or move the review window with the board date.</span></div>'}</section>`
+  if (!licensed)
+    return `<section class="unlock"><p class="eyebrow">Capacity Map Plus</p><h1>Review two weeks of capacity conflicts</h1><p>Plus groups conflicting jobs by their staff, resource, or service-pair reason. Core planning and CSV export stay free.</p><p class="price"><b>$29</b> one-time purchase</p><div class="button-row"><a class="primary button-link" href="https://api.sociobot.in/api/v1/products/${PRODUCT}/checkout">Buy Capacity Map Plus</a><button data-restore>Paste a license</button></div><p class="quiet">Sociobot / Dodo is merchant of record. Refunds revoke the license. <a href="/terms" data-route="/terms">Read the terms</a>.</p></section>`;
+  const issues: { date: string; booking: Booking; reason: string }[] = [];
+  for (let offset = 0; offset < 14; offset++)
+    for (const booking of data.bookings.filter(
+      (b) => b.date === dateAdd(day, offset),
+    ))
+      for (const issue of conflictsFor(data, booking))
+        issues.push({ date: booking.date, booking, reason: issue.label });
+  return `<section class="review"><p class="eyebrow">Two-week review${demoMode ? " · sample preview" : ""}</p><h1>${issues.length ? `${issues.length} capacity checks need attention` : "No disallowed overlaps found"}</h1><p>${prettyDate(day)} through ${prettyDate(dateAdd(day, 13))}. This uses the same explainable rules as the live board.</p>${issues.length ? `<ol class="review-list">${issues.map((x) => `<li><b>${esc(prettyDate(x.date))} · ${esc(x.booking.start)}</b><span>${esc(serviceName(x.booking.serviceId))} with ${esc(staffName(x.booking.staffId))}</span><em>${esc(x.reason)}</em></li>`).join("")}</ol>` : '<div class="explanation good"><strong>Clear plan</strong><span>Add more jobs or move the review window with the board date.</span></div>'}</section>`;
 }
 
 function legal(kind: 'privacy' | 'terms') { return kind === 'privacy' ? `<article class="legal"><h1>Privacy</h1><p>Capacity Map stores your team, service, resource, and job-plan records only in this browser’s IndexedDB. It does not send them to us, use analytics, or track employees.</p><p>A license token is stored in this browser only to enable Plus. When online, it may be checked with Sociobot’s licensing service no more than once a day. CSV import and export start only when you choose them.</p><p><a href="/" data-route="/">Return to the planner</a></p></article>` : `<article class="legal"><h1>Terms</h1><p>Capacity Map is a planning aid. You remain responsible for checking real-world staffing, safety, and customer commitments. The free planner is provided as-is.</p><p>Capacity Map Plus is a one-time license sold by Sociobot / Dodo, the merchant of record. A refund or revocation disables Plus; core local records remain yours and exportable.</p><p><a href="/" data-route="/">Return to the planner</a></p></article>` }
@@ -103,7 +109,7 @@ function setMetadata() {
 function render(focusHeading = false) {
   const content = page === 'board' ? renderBoard() : page === 'setup' ? setupView() : page === 'review' ? reviewView() : legal(page)
   const demoBanner = demoMode ? '<aside class="demo-banner" aria-label="Demo mode"><strong>Demo — sample data, nothing is saved to your notebook</strong><span><button data-reset-demo>Reset demo</button><button data-start-real>Start for real</button></span></aside>' : ''
-  app.innerHTML = `<div class="route-announcer sr-only" aria-live="polite"></div><header><a class="brand" href="/" data-route="/" aria-label="Capacity Map home"><span class="brand-mark">⌘</span><span>Capacity <i>Map</i></span></a><nav aria-label="Site"><a href="/demo" data-route="/demo">Demo</a><a href="/privacy" data-route="/privacy">Privacy</a></nav><span class="local-status" aria-live="polite">${demoMode ? 'Separate demo notebook' : navigator.onLine ? 'Saved on this device' : 'Offline — saved on this device'}</span></header>${demoBanner}${page === 'privacy' || page === 'terms' ? '' : nav()}<main id="main" tabindex="-1">${content}</main><footer><span>Plans stay in this browser.</span><span><a href="/privacy" data-route="/privacy">Privacy</a> · <a href="/terms" data-route="/terms">Terms</a> · <a href="https://sociobot.in">Built by Param Factory</a> · v${__BUILD_VERSION__}</span></footer>${message ? `<div class="toast" role="status">${esc(message)}</div>` : ''}${updateWaiting ? '<div class="update-toast" role="status">A new version is ready. <button data-update>Refresh now</button></div>' : ''}`
+  app.innerHTML = `<div class="route-announcer sr-only" aria-live="polite"></div><header><a class="brand" href="/" data-route="/" aria-label="Capacity Map home"><span class="brand-mark">⌘</span><span>Capacity <i>Map</i></span></a><nav aria-label="Site"><a href="/demo" data-route="/demo">Demo</a><a href="/privacy" data-route="/privacy">Privacy</a></nav><span class="local-status" aria-live="polite">${demoMode ? 'Separate demo notebook' : navigator.onLine ? 'Saved on this device' : 'Offline — saved on this device'}</span></header>${demoBanner}${page === 'privacy' || page === 'terms' ? '' : nav()}<main id="main" tabindex="-1">${content}</main><footer><span>Plans stay in this browser. Notebook art was generated for Capacity Map.</span><span><a href="/privacy" data-route="/privacy">Privacy</a> · <a href="/terms" data-route="/terms">Terms</a> · <a href="https://sociobot.in">Built by Param Factory</a> · v${__BUILD_VERSION__}</span></footer>${message ? `<div class="toast" role="status">${esc(message)}</div>` : ''}${updateWaiting ? '<div class="update-toast" role="status">A new version is ready. <button data-update>Refresh now</button></div>' : ''}`
   setMetadata()
   wire()
   if (focusHeading) {
@@ -131,6 +137,36 @@ async function routeTo(path: AppRoute, replace = false) {
 }
 
 function inputValues(form: HTMLFormElement, key: string) { return [...form.querySelectorAll<HTMLInputElement>(`input[name="${key}"]:checked`)].map((x) => x.value) }
+
+function clearFormError(form: HTMLFormElement) {
+  form.querySelector('.form-error')?.remove()
+  form.querySelectorAll('[aria-invalid="true"]').forEach((field) => {
+    field.removeAttribute('aria-invalid')
+    field.removeAttribute('aria-describedby')
+  })
+}
+
+function showFormError(form: HTMLFormElement, field: HTMLElement, text: string) {
+  clearFormError(form)
+  const error = document.createElement('p')
+  error.id = `${form.id}-error`
+  error.className = 'form-error error-text'
+  error.role = 'alert'
+  error.textContent = text
+  field.setAttribute('aria-invalid', 'true')
+  field.setAttribute('aria-describedby', error.id)
+  form.append(error)
+  field.focus()
+}
+
+function namedInput(form: HTMLFormElement, name: string) {
+  return form.elements.namedItem(name) as HTMLInputElement
+}
+
+function clearErrorWhenEdited(form: HTMLFormElement) {
+  form.addEventListener('input', () => clearFormError(form))
+}
+
 function openDraft(next: Draft, returnFocus: DraftReturnFocus) {
   draft = next
   draftReturnFocus = returnFocus
@@ -257,10 +293,64 @@ function wire() {
   app.querySelectorAll<HTMLButtonElement>('[data-delete-booking]').forEach((el) => el.onclick = async () => { const b = data.bookings.find((x) => x.id === el.dataset.deleteBooking)!; if (confirm(`Remove ${serviceName(b.serviceId)} at ${b.start}?`)) { data.bookings = data.bookings.filter((x) => x.id !== b.id); await persist('Job removed') } })
   app.querySelector<HTMLButtonElement>('[data-reset-demo]')?.addEventListener('click', async () => { data = seededData(day); await save(data, 'demo'); page = 'board'; message = 'Demo reset to its sample plan'; render() })
   app.querySelector<HTMLButtonElement>('[data-start-real]')?.addEventListener('click', () => { void routeTo('/') })
-  app.querySelector<HTMLFormElement>('#staff-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); data.staff.push({ id: id(), name: String(f.get('name')).trim(), parallelSlots: Number(f.get('parallelSlots')), color: colours[data.staff.length % colours.length] }); await persist('Team member added') })
-  app.querySelector<HTMLFormElement>('#resource-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); data.resources.push({ id: id(), name: String(f.get('name')).trim(), capacity: Number(f.get('capacity')), color: colours[data.resources.length % colours.length] }); await persist('Resource added') })
-  app.querySelector<HTMLFormElement>('#service-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = e.currentTarget as HTMLFormElement; const fd = new FormData(f); const staffIds = inputValues(f, 'staffIds'); if (!staffIds.length) { message = 'Choose at least one team member.'; render(); return } data.services.push({ id: id(), name: String(fd.get('name')).trim(), minutes: Number(fd.get('minutes')), staffIds, resourceIds: inputValues(f, 'resourceIds'), color: colours[data.services.length % colours.length] }); await persist('Service added') })
-  app.querySelector<HTMLFormElement>('#rule-form')?.addEventListener('submit', async (e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); if (f.get('serviceA') === f.get('serviceB')) { message = 'Choose two different services for a pair rule.'; render(); return } data.rules.push({ id: id(), serviceA: String(f.get('serviceA')), serviceB: String(f.get('serviceB')), allowed: false, note: String(f.get('note')).trim() }); await persist('Pair rule added') })
+  const staffForm = app.querySelector<HTMLFormElement>('#staff-form')
+  if (staffForm) {
+    clearErrorWhenEdited(staffForm)
+    staffForm.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const nameField = namedInput(staffForm, 'name')
+      const name = nameField.value.trim()
+      if (!name) { showFormError(staffForm, nameField, 'Enter a team member name.'); return }
+      const values = new FormData(staffForm)
+      data.staff.push({ id: id(), name, parallelSlots: Number(values.get('parallelSlots')), color: colours[data.staff.length % colours.length] })
+      await persist('Team member added')
+    })
+  }
+  const resourceForm = app.querySelector<HTMLFormElement>('#resource-form')
+  if (resourceForm) {
+    clearErrorWhenEdited(resourceForm)
+    resourceForm.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const nameField = namedInput(resourceForm, 'name')
+      const name = nameField.value.trim()
+      if (!name) { showFormError(resourceForm, nameField, 'Enter a shared resource name.'); return }
+      const values = new FormData(resourceForm)
+      data.resources.push({ id: id(), name, capacity: Number(values.get('capacity')), color: colours[data.resources.length % colours.length] })
+      await persist('Resource added')
+    })
+  }
+  const serviceForm = app.querySelector<HTMLFormElement>('#service-form')
+  if (serviceForm) {
+    clearErrorWhenEdited(serviceForm)
+    serviceForm.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const nameField = namedInput(serviceForm, 'name')
+      const name = nameField.value.trim()
+      if (!name) { showFormError(serviceForm, nameField, 'Enter a service name.'); return }
+      const staffIds = inputValues(serviceForm, 'staffIds')
+      if (!staffIds.length) {
+        showFormError(serviceForm, serviceForm.querySelector<HTMLElement>('#service-staff-group')!, 'Choose at least one team member.')
+        return
+      }
+      const values = new FormData(serviceForm)
+      data.services.push({ id: id(), name, minutes: Number(values.get('minutes')), staffIds, resourceIds: inputValues(serviceForm, 'resourceIds'), color: colours[data.services.length % colours.length] })
+      await persist('Service added')
+    })
+  }
+  const ruleForm = app.querySelector<HTMLFormElement>('#rule-form')
+  if (ruleForm) {
+    clearErrorWhenEdited(ruleForm)
+    ruleForm.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const values = new FormData(ruleForm)
+      if (values.get('serviceA') === values.get('serviceB')) {
+        showFormError(ruleForm, ruleForm.elements.namedItem('serviceB') as HTMLSelectElement, 'Choose two different services for a pair rule.')
+        return
+      }
+      data.rules.push({ id: id(), serviceA: String(values.get('serviceA')), serviceB: String(values.get('serviceB')), allowed: false, note: String(values.get('note')).trim() })
+      await persist('Pair rule added')
+    })
+  }
   app.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((el) => el.onclick = async () => {
     const [type, removeId] = el.dataset.remove!.split('|')
     if (!confirm(removalWarning(type, removeId))) return
@@ -278,6 +368,12 @@ function wire() {
     await persist('Item removed after confirmation; dependent plan entries were updated')
   })
   app.querySelector<HTMLButtonElement>('[data-export]')?.addEventListener('click', exportCsv)
+  app.querySelector<HTMLButtonElement>('[data-import]')?.addEventListener('click', () => {
+    const input = app.querySelector<HTMLInputElement>('#import-file')
+    if (!input) return
+    if (typeof input.showPicker === 'function') input.showPicker()
+    else input.click()
+  })
   app.querySelector<HTMLInputElement>('#import-file')?.addEventListener('change', importCsv)
   app.querySelector<HTMLButtonElement>('[data-clear]')?.addEventListener('click', async () => { if (confirm('Start a blank notebook? Export first if you may need this plan.')) { data = emptyData(); await persist('Blank notebook ready') } })
   app.querySelector<HTMLButtonElement>('[data-restore]')?.addEventListener('click', () => { const token = prompt('Paste your Capacity Map license token'); if (token?.trim()) activateLicense(token.trim()) })
@@ -325,6 +421,11 @@ function checkedCsvData(rows: Record<string, string>[]): Data {
     if (!Number.isInteger(parsed) || parsed < minimum || (maximum !== undefined && parsed > maximum)) throw new Error(`${label} must be a whole number from ${minimum}${maximum === undefined ? ' or more' : ` to ${maximum}`}. Nothing was imported.`)
     return parsed
   }
+  const requiredName = (value: string, label: string) => {
+    const name = value.trim()
+    if (!name) throw new Error(`Each ${label} needs a name. Nothing was imported.`)
+    return name
+  }
   const ids = new Set<string>()
   for (const row of rows) {
     if (!row.type || !row.id) throw new Error('One or more CSV rows is missing its type or ID. Nothing was imported.')
@@ -333,14 +434,13 @@ function checkedCsvData(rows: Record<string, string>[]): Data {
     if (ids.has(identity)) throw new Error(`The CSV repeats ${row.type} ID “${row.id}”. Nothing was imported.`)
     ids.add(identity)
     if (row.type === 'staff') {
-      if (!row.name) throw new Error('Each team member needs a name. Nothing was imported.')
-      next.staff.push({ id: row.id, name: row.name, color: row.color || colours[0], parallelSlots: integer(row.parallelSlots, 'Parallel jobs', 1, 5) })
+      next.staff.push({ id: row.id, name: requiredName(row.name, 'team member'), color: row.color || colours[0], parallelSlots: integer(row.parallelSlots, 'Parallel jobs', 1, 5) })
     } else if (row.type === 'resource') {
-      if (!row.name) throw new Error('Each shared resource needs a name. Nothing was imported.')
-      next.resources.push({ id: row.id, name: row.name, color: row.color || colours[1], capacity: integer(row.capacity, 'Resource units', 1, 20) })
+      next.resources.push({ id: row.id, name: requiredName(row.name, 'shared resource'), color: row.color || colours[1], capacity: integer(row.capacity, 'Resource units', 1, 20) })
     } else if (row.type === 'service') {
-      if (!row.name || !list(row.staffIds).length) throw new Error('Each service needs a name and at least one team member. Nothing was imported.')
-      next.services.push({ id: row.id, name: row.name, color: row.color || colours[2], minutes: integer(row.minutes, 'Service minutes', 5), staffIds: list(row.staffIds), resourceIds: list(row.resourceIds) })
+      const name = requiredName(row.name, 'service')
+      if (!list(row.staffIds).length) throw new Error('Each service needs a name and at least one team member. Nothing was imported.')
+      next.services.push({ id: row.id, name, color: row.color || colours[2], minutes: integer(row.minutes, 'Service minutes', 5), staffIds: list(row.staffIds), resourceIds: list(row.resourceIds) })
     } else if (row.type === 'rule') {
       if (!row.serviceA || !row.serviceB || row.serviceA === row.serviceB || !['true', 'false'].includes(row.allowed)) throw new Error('Each service-pair rule needs two different services and a true or false setting. Nothing was imported.')
       next.rules.push({ id: row.id, serviceA: row.serviceA, serviceB: row.serviceB, allowed: row.allowed === 'true', note: row.note })
@@ -381,23 +481,27 @@ function savedLicenseCheck(key: string): LicenseCheck | null {
 }
 async function activateLicense(token: string) {
   localStorage.setItem(`sb_license:${PRODUCT}`, token)
-  const key = `sb_license_check:${PRODUCT}`; const old = savedLicenseCheck(key); const sameToken = !old?.token || old.token === token
-  licensed = sameToken ? old?.valid ?? true : true
+  const key = `sb_license_check:${PRODUCT}`; const old = savedLicenseCheck(key); const sameToken = old?.token === token
+  licensed = Boolean(sameToken && old.valid)
   if (old && sameToken && Date.now() - old.at < LICENSE_CHECK_MS) { render(); return }
   const startedAt = Date.now()
   localStorage.setItem(key, JSON.stringify({ valid: licensed, at: startedAt, token }))
-  message = 'License restored — checking it quietly in the background.'; render()
+  message = licensed ? 'License active — checking it quietly in the background.' : 'Checking this license before Plus opens.'; render()
   try {
     const response = await fetch(`https://api.sociobot.in/api/v1/products/${PRODUCT}/verify?license=${encodeURIComponent(token)}`)
     if (!response.ok) throw new Error('License check unavailable')
     const verdict = await response.json() as { valid: boolean }
-    localStorage.setItem(key, JSON.stringify({ valid: verdict.valid, at: startedAt, token }))
-    licensed = verdict.valid
-    message = verdict.valid ? '' : 'This license is no longer active. Your local plan is unchanged.'
+    const valid = verdict.valid === true
+    localStorage.setItem(key, JSON.stringify({ valid, at: startedAt, token }))
+    licensed = valid
+    message = valid ? '' : 'This license is no longer active. Your local plan is unchanged.'
     render()
-  } catch { /* The attempt timestamp prevents reload loops; the cached verdict stays in force until tomorrow. */ }
+  } catch {
+    message = licensed ? 'Plus is available from its last successful check.' : 'The license could not be checked. Plus stays locked until a check succeeds.'
+    render()
+  }
 }
-function setupLicense() { if (demoMode) { licensed = true; return } licensed = false; const params = new URLSearchParams(location.search); const fromUrl = params.get('license'); const token = fromUrl || localStorage.getItem(`sb_license:${PRODUCT}`); if (fromUrl) { localStorage.setItem(`sb_license:${PRODUCT}`, fromUrl); params.delete('license'); history.replaceState({}, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`) } if (token) void activateLicense(token) }
+function setupLicense() { if (demoMode) { licensed = true; return } licensed = false; const params = new URLSearchParams(location.search); const licenseParam = params.get('license'); const fromUrl = licenseParam?.trim() || null; const token = fromUrl || localStorage.getItem(`sb_license:${PRODUCT}`); if (licenseParam !== null) { if (fromUrl) localStorage.setItem(`sb_license:${PRODUCT}`, fromUrl); params.delete('license'); history.replaceState({}, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`) } if (token) void activateLicense(token) }
 
 window.addEventListener('online', () => render()); window.addEventListener('offline', () => render())
 window.addEventListener('popstate', () => {

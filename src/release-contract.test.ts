@@ -50,6 +50,14 @@ describe('release contracts', () => {
     }
   })
 
+  it('keeps the generated-art disclosure in every public footer', () => {
+    const app = readFileSync('src/main.ts', 'utf8')
+    const notFound = readFileSync('public/404.html', 'utf8')
+    const disclosure = 'Notebook art was generated for Capacity Map.'
+    expect(app).toContain(disclosure)
+    expect(notFound).toContain(disclosure)
+  })
+
   it('derives the PWA cache and installed URL from the same build version', () => {
     const config = readFileSync('vite.config.ts', 'utf8')
     expect(config).not.toContain("capacity-map-v1")
