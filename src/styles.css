@@ -78,7 +78,7 @@ button:disabled {
 }
 .text-button {
   border: 0;
-  min-height: 30px;
+  min-height: 44px;
   padding: 3px 0;
   background: transparent;
   color: var(--blue);
@@ -101,6 +101,9 @@ select:focus-visible {
 }
 .skip-link {
   position: absolute;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   left: 8px;
   top: -60px;
   background: var(--ink);
@@ -133,6 +136,7 @@ header nav {
 }
 header nav a {
   min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
   font-weight: 700;
@@ -140,6 +144,7 @@ header nav a {
 .brand {
   display: flex;
   align-items: center;
+  min-height: 44px;
   gap: 9px;
   color: var(--ink);
   text-decoration: none;
@@ -206,6 +211,14 @@ footer {
   gap: 16px;
   justify-content: space-between;
   font-size: 13px;
+}
+footer a,
+.legal a,
+.quiet a {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 .eyebrow {
   text-transform: uppercase;
@@ -516,7 +529,7 @@ select {
   gap: 9px;
 }
 .demo-banner button {
-  min-height: 38px;
+  min-height: 44px;
   border-color: var(--paper);
   background: transparent;
   color: var(--paper);
@@ -613,7 +626,9 @@ select {
   font-weight: 700;
 }
 .check {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   font-size: 14px;
   margin: 3px 0;
 }
@@ -884,7 +899,7 @@ select {
   right: auto;
 }
 .update-toast button {
-  min-height: 32px;
+  min-height: 44px;
   margin-left: 8px;
   padding: 4px 8px;
   border-color: #fff;

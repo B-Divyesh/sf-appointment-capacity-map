@@ -51,6 +51,17 @@ test('fits planner navigation at 390px without horizontal clipping', async ({ pa
   await page.screenshot({ path: '.factory/evidence/mobile-390.png', fullPage: true })
 })
 
+test('respects reduced motion and keeps mobile controls at least 44px high', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/demo')
+  expect(await page.locator('.matrix-cell').first().evaluate((element) => parseFloat(getComputedStyle(element).animationDuration))).toBeLessThanOrEqual(0.001)
+  const shortControls = await page.locator('button:visible, a:visible, input:visible, select:visible').evaluateAll((elements) => elements
+    .map((element) => ({ name: element.textContent?.trim() || element.getAttribute('aria-label') || element.tagName, height: element.getBoundingClientRect().height }))
+    .filter((control) => control.height < 44))
+  expect(shortControls).toEqual([])
+})
+
 for (const route of ['/', '/demo', '/privacy', '/terms']) {
   test(`has no serious accessibility violations on ${route}`, async ({ page }) => {
     await page.goto(route)
