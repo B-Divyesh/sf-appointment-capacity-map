@@ -54,5 +54,33 @@
     "where": "home facts, home Plus section, Plus screen, README",
     "test": "npm run test:claims -- --grep @claim:plus-price",
     "sandbox": "fresh normal context; open the Plus screen; assert exact price wording and registered checkout URL"
+  },
+  {
+    "id": "core-free",
+    "claim": "Core planning and CSV export are free to use without a license or checkout.",
+    "where": "home facts, Plus screen, README",
+    "test": "npm run test:claims -- --grep @claim:core-free",
+    "sandbox": "fresh normal context with no license; create a person, service, and clear job; export CSV; assert no external request or license"
+  },
+  {
+    "id": "no-calendar-booking-payment",
+    "claim": "Capacity Map does not connect to calendars, make public booking pages, take payments itself, or track employees.",
+    "where": "home limits, setup, README",
+    "test": "npm run test:claims -- --grep @claim:no-calendar-booking-payment",
+    "sandbox": "fresh demo flow; assert same-origin planner requests, no calendar or booking integration, no payment form, and an external Sociobot checkout link"
+  },
+  {
+    "id": "availability-check",
+    "claim": "Capacity Map checks whether service jobs can overlap before saving a booking.",
+    "where": "home headline and how-it-works, README",
+    "test": "npm run test:claims -- --grep @claim:availability-check",
+    "sandbox": "fresh demo; add one clear proposed job; open one staff-capacity conflict; assert its reason and disabled save action"
+  },
+  {
+    "id": "license-request-data",
+    "claim": "License verification sends only the pasted token to Sociobot.",
+    "where": "README privacy and legal terms",
+    "test": "npm run test:claims -- --grep @claim:license-request-data",
+    "sandbox": "fresh normal context with a URL license; intercept verification; assert exact Sociobot endpoint, sole license query parameter, GET method, and no body"
   }
 ]

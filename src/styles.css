@@ -186,6 +186,12 @@ header nav a {
   border-radius: 0;
   background: transparent;
   padding: 9px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: none;
 }
 .tab:hover {
   background: #eadfc980;

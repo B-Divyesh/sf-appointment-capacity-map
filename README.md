@@ -12,7 +12,7 @@ after its first visit.
 
 Open `/demo` or choose **Try it with sample data** on the home page. The demo
 loads two people, three services, two shared resources, and three jobs. It uses
-the `demo:capacity` IndexedDB key and never reads or writes the real notebook.
+separate browser storage and never reads or writes your real notebook.
 Choose **Reset demo** to restore the sample or **Start for real** to discard it.
 
 ## Features
@@ -46,7 +46,7 @@ need an account or license.
 
 ## Deploy
 
-`npm run build` produces the static PWA in `dist/`. Deploy that directory to
+`npm run build` creates the offline web app in `dist/`. Deploy that directory to
 Azure Static Web Apps. `staticwebapp.config.json` supplies route rewrites,
 security headers, immutable asset caching, manifest MIME handling, and the 404
 response. The factory owns DNS and infrastructure.

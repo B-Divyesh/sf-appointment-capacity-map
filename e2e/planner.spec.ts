@@ -18,14 +18,49 @@ test('loads routes with one heading, history navigation, and no console errors',
   const errors: string[] = []
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto('/')
+  await page.getByRole('link', { name: 'Set up my own notebook' }).click()
+  await expect(page).toHaveURL(/\/setup$/)
+  await expect(page).toHaveTitle('Notebook setup — Capacity Map')
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Record team members, services, shared resources, and service-pair rules for capacity checks.')
+  await expect(page.getByRole('heading', { level: 1, name: 'Set up your capacity rules' })).toBeFocused()
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 1, name: 'Set up your capacity rules' })).toBeVisible()
+  await page.getByRole('link', { name: /Two-week review/ }).click()
+  await expect(page).toHaveURL(/\/review$/)
+  await expect(page).toHaveTitle('Two-week review — Capacity Map')
   await page.getByRole('link', { name: 'Privacy' }).first().click()
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page).toHaveTitle('Privacy — Capacity Map')
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Read how Capacity Map stores plans in your browser and checks optional license tokens.')
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Read how Capacity Map stores plans in your browser and checks optional license tokens.')
   await expect(page.locator('h1')).toHaveCount(1)
   await page.goBack()
-  await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Check which service jobs can overlap' })).toBeFocused()
+  await expect(page).toHaveURL(/\/review$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Review two weeks of capacity conflicts' })).toBeFocused()
   expect(errors).toEqual([])
+})
+
+test('keeps demo subroutes isolated and gives legal and 404 pages complete metadata', async ({ page, request }) => {
+  await page.goto('/demo/setup')
+  await expect(page).toHaveTitle('Demo setup — Capacity Map')
+  await expect(page.getByText('Demo — sample data, nothing is saved to your notebook')).toBeVisible()
+  await expect(page.getByText('Ava', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: /Two-week review/ }).click()
+  await expect(page).toHaveURL(/\/demo\/review$/)
+  await expect(page).toHaveTitle('Demo review — Capacity Map')
+  await page.goto('/terms')
+  await expect(page).toHaveTitle('Terms — Capacity Map')
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Read the terms for the free Capacity Map planner and the one-time Plus license.')
+  const notFound = await request.get('/404.html')
+  const html = await notFound.text()
+  expect(html).toContain('<header>')
+  expect(html).toContain('<footer>')
+  expect(html).toContain('name="description"')
+  expect(html).toContain('property="og:description"')
+  expect(html).toContain('name="twitter:description"')
+  expect(html).toContain('href="/privacy"')
+  expect(html).toContain('href="/terms"')
+  expect(html).toContain('rel="icon"')
 })
 
 test('adds and retains a clear job while rejecting malformed CSV without data loss', async ({ page }) => {
@@ -35,7 +70,7 @@ test('adds and retains a clear job while rejecting malformed CSV without data lo
   await expect(page.locator('.booking').filter({ hasText: '09:00' })).toContainText('Consultation')
   await page.reload()
   await expect(page.locator('.booking').filter({ hasText: '09:00' })).toContainText('Consultation')
-  await page.getByRole('button', { name: 'Notebook setup' }).click()
+  await page.getByRole('link', { name: 'Notebook setup' }).click()
   await page.locator('#import-file').setInputFiles({ name: 'broken.csv', mimeType: 'text/csv', buffer: Buffer.from('not,a,capacity,map') })
   await expect(page.getByRole('alert')).toHaveText('This does not look like a Capacity Map CSV.')
   await expect(page.getByText('Ava', { exact: true })).toBeVisible()
@@ -43,7 +78,7 @@ test('adds and retains a clear job while rejecting malformed CSV without data lo
 
 test('rejects an unknown CSV row type without replacing the notebook', async ({ page }) => {
   await page.goto('/demo')
-  await page.getByRole('button', { name: 'Notebook setup' }).click()
+  await page.getByRole('link', { name: 'Notebook setup' }).click()
   const unsupported = [
     'type,id,name,color,capacity,parallelSlots,minutes,staffIds,resourceIds,serviceA,serviceB,allowed,note,date,start,staffId,serviceId,client,createdAt',
     'unknown,bad,Unsupported row'
@@ -52,7 +87,7 @@ test('rejects an unknown CSV row type without replacing the notebook', async ({ 
   await expect(page.getByRole('alert')).toHaveText('Unsupported CSV row type “unknown”. Nothing was imported.')
   await expect(page.getByText('Ava', { exact: true })).toBeVisible()
   await page.reload()
-  await page.getByRole('button', { name: 'Notebook setup' }).click()
+  await page.getByRole('link', { name: 'Notebook setup' }).click()
   await expect(page.getByText('Ava', { exact: true })).toBeVisible()
 })
 
@@ -75,7 +110,7 @@ test('fits planner navigation at 390px without horizontal clipping', async ({ pa
   await page.goto('/demo')
   const dimensions = await page.locator('.tabs').evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }))
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client)
-  await expect(page.getByRole('button', { name: /Two-week review/ })).toBeInViewport()
+  await expect(page.getByRole('link', { name: /Two-week review/ })).toBeInViewport()
   await page.screenshot({ path: '.factory/evidence/mobile-390.png', fullPage: true })
 })
 
@@ -90,7 +125,7 @@ test('respects reduced motion and keeps mobile controls at least 44px high', asy
   expect(shortControls).toEqual([])
 })
 
-for (const route of ['/', '/demo', '/privacy', '/terms']) {
+for (const route of ['/', '/setup', '/review', '/demo', '/demo/setup', '/demo/review', '/privacy', '/terms', '/404.html']) {
   test(`has no serious accessibility violations on ${route}`, async ({ page }) => {
     await page.goto(route)
     await page.waitForLoadState('networkidle')

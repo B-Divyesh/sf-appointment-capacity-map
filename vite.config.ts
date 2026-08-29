@@ -25,7 +25,7 @@ function capacityServiceWorker(): Plugin {
       const files = Object.values(bundle)
         .filter((item) => item.type === 'chunk' || item.type === 'asset')
         .map((item) => `/${item.fileName}`)
-      const precache = JSON.stringify([...new Set(['/', '/demo', '/privacy', '/terms', '/offline.html', '/manifest.webmanifest', ...files])])
+      const precache = JSON.stringify([...new Set(['/', '/setup', '/review', '/demo', '/demo/setup', '/demo/review', '/privacy', '/terms', '/offline.html', '/manifest.webmanifest', ...files])])
       this.emitFile({
         type: 'asset',
         fileName: 'manifest.webmanifest',

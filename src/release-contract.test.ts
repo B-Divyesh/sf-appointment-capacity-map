@@ -36,6 +36,11 @@ describe('release contracts', () => {
     expect(config.routes.find((route: { route: string }) => route.route === '/assets/*').headers['Cache-Control']).toContain('immutable')
     expect(config.routes.find((route: { route: string }) => route.route === '/manifest.webmanifest').headers['Content-Type']).toContain('application/manifest+json')
     expect(config.responseOverrides['404']).toEqual({ rewrite: '/404.html', statusCode: 404 })
+    for (const route of ['/setup', '/review', '/demo', '/demo/*', '/privacy', '/terms']) {
+      expect(config.routes.find((entry: { route: string }) => entry.route === route)?.rewrite).toBe('/index.html')
+    }
+    const notFound = readFileSync('public/404.html', 'utf8')
+    for (const required of ['<header>', '<main', '<footer>', 'name="description"', 'property="og:description"', 'name="twitter:description"', 'href="/privacy"', 'href="/terms"', 'rel="icon"']) expect(notFound).toContain(required)
   })
 
   it('derives the PWA cache and installed URL from the same build version', () => {

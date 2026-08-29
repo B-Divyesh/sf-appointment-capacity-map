@@ -5,6 +5,7 @@ import { availabilityFor, conflictsFor, resourceById, seededData, serviceById, s
 import { emptyData, id, today, type Booking, type Data, type Id } from './types'
 
 type Page = 'board' | 'setup' | 'review' | 'privacy' | 'terms'
+type AppRoute = '/' | '/setup' | '/review' | '/demo' | '/demo/setup' | '/demo/review' | '/privacy' | '/terms'
 type Draft = Omit<Booking, 'id' | 'createdAt'>
 const app = document.querySelector<HTMLDivElement>('#app')!
 const PRODUCT = 'appointment-capacity-map'
@@ -13,8 +14,9 @@ const CSV_HEADER = 'type,id,name,color,capacity,parallelSlots,minutes,staffIds,r
 const CSV_TYPES = new Set(['staff', 'resource', 'service', 'rule', 'booking'])
 const LICENSE_CHECK_MS = 86_400_000
 const initialUrl = new URL(location.href)
-let demoMode = initialUrl.pathname === '/demo' || initialUrl.searchParams.get('demo') === '1'
-let data: Data = emptyData(); let page: Page = initialUrl.pathname === '/privacy' ? 'privacy' : initialUrl.pathname === '/terms' ? 'terms' : 'board'; let day = today(); let time = '09:00'; let draft: Draft | null = null
+const pageFromPath = (path: string): Page => path === '/privacy' ? 'privacy' : path === '/terms' ? 'terms' : path.endsWith('/setup') ? 'setup' : path.endsWith('/review') ? 'review' : 'board'
+let demoMode = initialUrl.pathname === '/demo' || initialUrl.pathname.startsWith('/demo/') || initialUrl.searchParams.get('demo') === '1'
+let data: Data = emptyData(); let page: Page = pageFromPath(initialUrl.pathname); let day = today(); let time = '09:00'; let draft: Draft | null = null
 let message = ''; let licensed = false; let importError = ''; let updateWaiting: ServiceWorker | null = null
 
 const esc = (value: string | number) => String(value).replace(/[&<>'"]/g, (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[s]!))
@@ -32,11 +34,11 @@ function resourceNames(values: Id[]) { return values.map((x) => resourceById(dat
 
 function nav() {
   const items: [Page, string][] = [['board', 'Today board'], ['setup', 'Notebook setup'], ['review', 'Two-week review']]
-  return `<nav aria-label="Planner sections" class="tabs">${items.map(([key, text]) => `<button class="tab ${page === key ? 'active' : ''}" data-page="${key}" aria-current="${page === key ? 'page' : 'false'}">${text}${key === 'review' && !licensed ? '<span class="mini-lock" aria-label="Paid">◆</span>' : ''}</button>`).join('')}</nav>`
+  return `<nav aria-label="Planner sections" class="tabs">${items.map(([key, text]) => { const route = key === 'board' ? (demoMode ? '/demo' : '/') : `${demoMode ? '/demo' : ''}/${key}`; return `<a href="${route}" class="tab ${page === key ? 'active' : ''}" data-route="${route}" ${page === key ? 'aria-current="page"' : ''}>${text}${key === 'review' && !licensed ? '<span class="mini-lock" aria-label="Paid">◆</span>' : ''}</a>` }).join('')}</nav>`
 }
 
 function renderBoard() {
-  if (!data.services.length || !data.staff.length) return `<section class="empty-state"><img src="${art}" width="900" height="600" alt="An overhead notebook grid with coloured planning tokens." /><div><p class="eyebrow">Capacity Map</p><h1>Check which service jobs can overlap</h1><p class="audience">For service businesses with two to ten people who need clear answers before adding work to the calendar.</p><div class="button-row hero-actions"><a class="primary button-link" href="/demo" data-route="/demo">Try it with sample data</a><span>Loads a separate notebook with a realistic day plan.</span></div><button data-page="setup">Set up my own notebook</button><ul class="plain-facts"><li>Your plan stays in this browser.</li><li>Works offline after the first visit.</li><li>Core planning is free. Plus costs $29 once.</li></ul></div></section><section class="landing-section" aria-labelledby="how-title"><h2 id="how-title">How it works</h2><ol class="steps"><li><b>Add your capacity.</b><span>Record people, services, equipment, and limits.</span></li><li><b>Choose a time.</b><span>See which jobs fit before changing your calendar.</span></li><li><b>Read the reason.</b><span>Each blocked slot names the person, item, or rule.</span></li></ol></section><section class="landing-section restrained" aria-labelledby="limits-title"><h2 id="limits-title">Your browser holds the plan</h2><p>Capacity Map does not connect to calendars, take bookings, or track employees.</p><p>You choose when to import or export a CSV file.</p></section><section class="landing-section plus-note" aria-labelledby="plus-title"><h2 id="plus-title">Review two weeks with Plus</h2><p>Capacity Map Plus lists conflicts across fourteen days. It costs $29 as a one-time purchase.</p><button data-page="review">See Plus details</button></section>`
+  if (!data.services.length || !data.staff.length) return `<section class="empty-state"><img src="${art}" width="900" height="600" alt="An overhead notebook grid with coloured planning tokens." /><div><p class="eyebrow">Capacity Map</p><h1>Check which service jobs can overlap</h1><p class="audience">For service businesses with two to ten people who need clear answers before adding work to the calendar.</p><div class="button-row hero-actions"><a class="primary button-link" href="/demo" data-route="/demo">Try it with sample data</a><span>Loads a separate notebook with a realistic day plan.</span></div><a class="button-link" href="/setup" data-route="/setup">Set up my own notebook</a><ul class="plain-facts"><li>Your plan stays in this browser.</li><li>Works offline after the first visit.</li><li>Core planning is free. Plus costs $29 once.</li></ul></div></section><section class="landing-section" aria-labelledby="how-title"><h2 id="how-title">How it works</h2><ol class="steps"><li><b>Add your capacity.</b><span>Record people, services, equipment, and limits.</span></li><li><b>Choose a time.</b><span>See which jobs fit before changing your calendar.</span></li><li><b>Read the reason.</b><span>Each blocked slot names the person, item, or rule.</span></li></ol></section><section class="landing-section restrained" aria-labelledby="limits-title"><h2 id="limits-title">Your browser holds the plan</h2><p>Capacity Map does not connect to calendars, take bookings, or track employees.</p><p>You choose when to import or export a CSV file.</p></section><section class="landing-section plus-note" aria-labelledby="plus-title"><h2 id="plus-title">Review two weeks with Plus</h2><p>Capacity Map Plus lists conflicts across fourteen days. It costs $29 as a one-time purchase.</p><a class="button-link" href="/review" data-route="/review">See Plus details</a></section>`
   const bookings = data.bookings.filter((b) => b.date === day).sort((a, b) => a.start.localeCompare(b.start))
   const cells = data.services.flatMap((service) => service.staffIds.map((staffId) => {
     const issues = availabilityFor(data, service, staffId, day, time)
@@ -69,12 +71,25 @@ function reviewView() {
 function legal(kind: 'privacy' | 'terms') { return kind === 'privacy' ? `<article class="legal"><h1>Privacy</h1><p>Capacity Map stores your team, service, resource, and job-plan records only in this browser’s IndexedDB. It does not send them to us, use analytics, or track employees.</p><p>A license token is stored in this browser only to enable Plus. When online, it may be checked with Sociobot’s licensing service no more than once a day. CSV import and export start only when you choose them.</p><p><a href="/" data-route="/">Return to the planner</a></p></article>` : `<article class="legal"><h1>Terms</h1><p>Capacity Map is a planning aid. You remain responsible for checking real-world staffing, safety, and customer commitments. The free planner is provided as-is.</p><p>Capacity Map Plus is a one-time license sold by Sociobot / Dodo, the merchant of record. A refund or revocation disables Plus; core local records remain yours and exportable.</p><p><a href="/" data-route="/">Return to the planner</a></p></article>` }
 
 function setMetadata() {
-  const routeTitle = page === 'privacy' ? 'Privacy — Capacity Map' : page === 'terms' ? 'Terms — Capacity Map' : demoMode ? 'Demo — Capacity Map' : 'Capacity Map — check service job overlaps'
-  const canonicalPath = page === 'privacy' ? '/privacy' : page === 'terms' ? '/terms' : demoMode ? '/demo' : '/'
+  const metadata: Record<Page, { title: string; description: string }> = {
+    board: demoMode
+      ? { title: 'Demo — Capacity Map', description: 'Try a sample service plan and check job overlaps without changing your notebook.' }
+      : { title: 'Capacity Map — check service job overlaps', description: "Check which service jobs can overlap before adding work to a small team's calendar." },
+    setup: { title: `${demoMode ? 'Demo setup' : 'Notebook setup'} — Capacity Map`, description: 'Record team members, services, shared resources, and service-pair rules for capacity checks.' },
+    review: { title: `${demoMode ? 'Demo review' : 'Two-week review'} — Capacity Map`, description: 'Review fourteen days of job conflicts grouped by the staff, resource, or service-pair reason.' },
+    privacy: { title: 'Privacy — Capacity Map', description: 'Read how Capacity Map stores plans in your browser and checks optional license tokens.' },
+    terms: { title: 'Terms — Capacity Map', description: 'Read the terms for the free Capacity Map planner and the one-time Plus license.' }
+  }
+  const { title: routeTitle, description } = metadata[page]
+  const canonicalPath = page === 'privacy' || page === 'terms' ? `/${page}` : page === 'board' ? (demoMode ? '/demo' : '/') : `${demoMode ? '/demo' : ''}/${page}`
   document.title = routeTitle
   document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.setAttribute('href', `https://appointment-capacity-map.sociobot.in${canonicalPath}`)
+  document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute('content', description)
   document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.setAttribute('content', routeTitle)
+  document.querySelector<HTMLMetaElement>('meta[property="og:description"]')?.setAttribute('content', description)
   document.querySelector<HTMLMetaElement>('meta[property="og:url"]')?.setAttribute('content', `https://appointment-capacity-map.sociobot.in${canonicalPath}`)
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:title"]')?.setAttribute('content', routeTitle)
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:description"]')?.setAttribute('content', description)
 }
 
 function render(focusHeading = false) {
@@ -89,10 +104,10 @@ function render(focusHeading = false) {
   }
 }
 
-async function routeTo(path: '/' | '/demo' | '/privacy' | '/terms', replace = false) {
-  const leavingDemo = demoMode && path !== '/demo'
+async function routeTo(path: AppRoute, replace = false) {
+  const nextDemo = path === '/demo' || path.startsWith('/demo/')
+  const leavingDemo = demoMode && !nextDemo
   if (leavingDemo) await clear('demo')
-  const nextDemo = path === '/demo'
   if (nextDemo !== demoMode) {
     demoMode = nextDemo
     data = await load(storageMode())
@@ -100,7 +115,7 @@ async function routeTo(path: '/' | '/demo' | '/privacy' | '/terms', replace = fa
     licensed = demoMode
     if (!demoMode) setupLicense()
   }
-  page = path === '/privacy' ? 'privacy' : path === '/terms' ? 'terms' : 'board'
+  page = pageFromPath(path)
   draft = null
   if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path)
   render(true)
@@ -108,8 +123,7 @@ async function routeTo(path: '/' | '/demo' | '/privacy' | '/terms', replace = fa
 
 function inputValues(form: HTMLFormElement, key: string) { return [...form.querySelectorAll<HTMLInputElement>(`input[name="${key}"]:checked`)].map((x) => x.value) }
 function wire() {
-  app.querySelectorAll<HTMLElement>('[data-page]').forEach((el) => el.onclick = () => { page = el.dataset.page as Page; draft = null; render() })
-  app.querySelectorAll<HTMLAnchorElement>('[data-route]').forEach((el) => el.onclick = (event) => { event.preventDefault(); void routeTo(el.dataset.route as '/' | '/demo' | '/privacy' | '/terms') })
+  app.querySelectorAll<HTMLAnchorElement>('[data-route]').forEach((el) => el.onclick = (event) => { event.preventDefault(); void routeTo(el.dataset.route as AppRoute) })
   app.querySelectorAll<HTMLButtonElement>('[data-propose]').forEach((el) => el.onclick = () => { const [serviceId, staffId] = el.dataset.propose!.split('|'); const service = serviceById(data, serviceId)!; draft = { serviceId, staffId, date: day, start: time, minutes: service.minutes, resourceIds: service.resourceIds, client: '' }; render() })
   app.querySelector<HTMLButtonElement>('[data-new-booking]')?.addEventListener('click', () => { const service = data.services[0]; draft = { serviceId: service.id, staffId: service.staffIds[0], date: day, start: time, minutes: service.minutes, resourceIds: service.resourceIds, client: '' }; render() })
   app.querySelectorAll<HTMLButtonElement>('[data-cancel-draft]').forEach((el) => el.onclick = () => { draft = null; render() })
@@ -243,8 +257,7 @@ function setupLicense() { if (demoMode) { licensed = true; return } licensed = f
 
 window.addEventListener('online', () => render()); window.addEventListener('offline', () => render())
 window.addEventListener('popstate', () => {
-  const path = location.pathname
-  void routeTo(path === '/demo' ? '/demo' : path === '/privacy' ? '/privacy' : path === '/terms' ? '/terms' : '/', true)
+  void routeTo(location.pathname as AppRoute, true)
 })
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((registration) => {
   const showUpdate = (worker: ServiceWorker | null) => { if (worker && navigator.serviceWorker.controller) { updateWaiting = worker; render() } }
@@ -259,6 +272,6 @@ load(storageMode()).then(async (loaded) => {
   data = loaded
   if (demoMode && !hasPlan(data)) { data = seededData(day); await save(data, 'demo') }
   setupLicense()
-  if (initialUrl.searchParams.get('demo') === '1') history.replaceState({}, '', '/demo')
+  if (initialUrl.searchParams.get('demo') === '1') { page = 'board'; history.replaceState({}, '', '/demo') }
   render()
 }).catch(() => { message = 'Local storage is unavailable. Check your browser privacy settings.'; render() })
